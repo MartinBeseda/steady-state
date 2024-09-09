@@ -82,7 +82,15 @@ def ssd_Kelly(x: np.ndarray, n: int, t_crit: float) -> np.ndarray:
             should_break = True
 
         if to_idx - from_idx < 3:
-            intervals[-1][1] = to_idx
+            if intervals:
+                intervals[-1][1] = to_idx
+            else:
+                print('There are too few points provided for Kelly to determine the steadiness probability! '
+                      'The probabilities for these points are gonna be set to -1.')
+
+                intervals.append([from_idx, to_idx])
+                P[from_idx:to_idx] = -1
+                return P
         else:
             intervals.append([from_idx, to_idx])
 
@@ -182,7 +190,8 @@ def print_fork(timeseries: np.ndarray, P: np.ndarray, warmup_end: int, classific
     ax1.tick_params(axis='y', labelcolor=color)
     ax1.set_xlim([0, len(timeseries)])
     ax1.set_ylim([min(timeseries), max(timeseries)])
-    ax1.vlines(warmup_end, min(timeseries), max(timeseries), colors='g')
+    if warmup_end > -1:
+        ax1.vlines(warmup_end, min(timeseries), max(timeseries), colors='g')
     ax1.vlines(classification, vline_min, vline_max, colors='r')
 
     # Plotting the steady-state probability
@@ -190,7 +199,6 @@ def print_fork(timeseries: np.ndarray, P: np.ndarray, warmup_end: int, classific
     color = 'tab:red'
     ax2.set_ylabel('SS Probability', color=color)
     ax2.plot(range(len(P)), P, color=color, label='SS Probability')
-    # ax2.plot(np.ones(len(timeseries)), 'k')
     ax2.hlines(0.8, 0, len(timeseries), colors='r', linestyles='dashed', label='SS Threshold')
     ax2.tick_params(axis='y', labelcolor=color)
     ax2.set_ylim([0.0, 1])
@@ -198,7 +206,6 @@ def print_fork(timeseries: np.ndarray, P: np.ndarray, warmup_end: int, classific
     fig.tight_layout()
     plt.title('Noisy Step Response and Steady-State Probability')
     plt.grid()
-    # plt.legend()
     plt.show()
 
     # Print steadiness probabilities
@@ -249,74 +256,73 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
     step = np.hstack((np.ones(len(data)), -1 * np.ones(len(data))))
     timeseries_step = np.convolve(data, step, mode='valid')
     large_kernel_step_idx = np.argmin(timeseries_step) - 1
-    # print(f'large step idx: {large_kernel_step_idx}')
-    # print(f'large step: {data[large_kernel_step_idx] - data[large_kernel_step_idx + 1]}')
 
     # Detect step in the data with small convolution kernel (4 elements) to take data tails into account
     filter_len = 10
     step2 = np.array(filter_len*[1]+filter_len*[-1])
     timeseries_step2 = np.convolve(data, step2, mode='valid')
     small_kernel_step_idx = np.argmin(timeseries_step2) + filter_len - 1
-    # print(f'small step idx {small_kernel_step_idx}')
-    # print(f'small step: {data[small_kernel_step_idx] - data[small_kernel_step_idx + 1]}')
 
-    # Check, whether the steps are significant enough and which one to accept, if any, based on median difference of
-    # their surrounding windows
-    large_left_win = data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]
-    large_right_win = data[large_kernel_step_idx + 1:min(large_kernel_step_idx + win_size + 1, data_len)]
-    large_diff = np.median(large_left_win) - np.median(large_right_win)
+    # If the step is detected in the very last sample of the series, we consider it non-existent
+    if large_kernel_step_idx == len(data) - 1:
+        large_kernel_step_idx = -1
 
-    small_left_win = data[max(small_kernel_step_idx - win_size, 0):small_kernel_step_idx + 1]
-    small_right_win = data[small_kernel_step_idx + 1:min(small_kernel_step_idx + win_size + 1, data_len)]
-    small_diff = np.median(small_left_win) - np.median(small_right_win)
+    if small_kernel_step_idx == len(data) - 1:
+        small_kernel_step_idx = -1
 
-    # step_idx = large_kernel_step_idx
-    if small_kernel_step_idx > large_kernel_step_idx:
-        tmp = small_kernel_step_idx
-        small_kernel_step_idx = large_kernel_step_idx
+    # If both the kernels detected steps at the same index or differing just by 1, discard the one detected via large
+    # kernel
+    if np.abs(large_kernel_step_idx - small_kernel_step_idx) in (0, 1):
+        large_kernel_step_idx = -1
 
-        large_kernel_step_idx = tmp
+    step_idx = -1
 
-    elif small_kernel_step_idx == large_kernel_step_idx:
-        return small_kernel_step_idx, timeseries_step
-    if small_kernel_step_idx == 0:
-        return large_kernel_step_idx, timeseries_step
+    # If large kernel detected a step, continue with its processing
+    if large_kernel_step_idx > -1:
+        # Check, whether the steps are significant enough and which one to accept, if any, based on median difference of
+        # their surrounding windows
+        large_left_win = data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]
+        large_right_win = data[large_kernel_step_idx + 1:min(large_kernel_step_idx + win_size + 1, data_len)]
 
+        # Difference of medians of windows around the detected "large step"
+        large_diff = np.median(large_left_win) - np.median(large_right_win)
 
-    #print('medians', np.median(data[small_kernel_step_idx+1:large_kernel_step_idx] , np.median(data[large_kernel_step_idx+1:])))
-    # if np.median(data[small_kernel_step_idx+1:large_kernel_step_idx]) < 1.5*np.median(data[large_kernel_step_idx+1:]):
-    # #if small_diff > large_diff:
-    #     step_idx = small_kernel_step_idx
+        if small_kernel_step_idx > large_kernel_step_idx:
+            # If "short kernel detection" is at larger index than "large window" one, switch them for convenience
+            tmp = small_kernel_step_idx
+            small_kernel_step_idx = large_kernel_step_idx
+            large_kernel_step_idx = tmp
 
-    # print(small_kernel_step_idx)
-    step_idx = small_kernel_step_idx
-    right_med = np.median(data[large_kernel_step_idx+1:])
+        elif small_kernel_step_idx == large_kernel_step_idx:
+            return small_kernel_step_idx, timeseries_step
+        if small_kernel_step_idx == 0:
+            return large_kernel_step_idx, timeseries_step
 
-    if np.median(data[small_kernel_step_idx+1:large_kernel_step_idx]) >0.5*np.abs(large_diff)+ right_med:#1.5 * np.abs(right_med) + right_med:
-        step_idx = large_kernel_step_idx
+        # Choose the step detected via "short kernel" as a default one
+        step_idx = small_kernel_step_idx
+        right_med = np.median(data[large_kernel_step_idx+1:])
 
+        # Check, if the step detected via "short kernel" is significant enough, otherwise take the "large kernel" one
+        if np.median(data[small_kernel_step_idx+1:large_kernel_step_idx]) > 0.5 * np.abs(large_diff) + right_med:
+            step_idx = large_kernel_step_idx
 
+    elif small_kernel_step_idx > -1:
+        step_idx = small_kernel_step_idx
 
-    #ADD
-    # print(f'Tresh: {np.abs(np.median(data)/2)}')
-    # print(f'Diff: {np.median(data[:step_idx])-np.median(data[step_idx:])}')
     if np.median(data[:step_idx])-np.median(data[step_idx:]) < np.abs(np.median(data)/2):
         if step_idx > small_kernel_step_idx:
             step_idx = small_kernel_step_idx
         else:
-            print(f'Chosen step not valid!!!')
             return -1, timeseries_step
 
-    # print(f'{step_idx}: {data[step_idx-1]}, {data[step_idx]}, {data[step_idx+1]}')
     return step_idx, timeseries_step
 
 
 def plot_step(data, warmup_end, win, label):
-    # print(f'Step Idx {warmup_end}')
     win_data = data[max(warmup_end-win,0):min(warmup_end+win, len(data))-1]
     plt.figure(figsize=(12, 6))
 
-    plt.scatter( np.linspace(0,len(win_data),len(win_data)),win_data, label='Signal', color='gray')
+    plt.scatter(np.linspace(0,len(win_data),len(win_data)),win_data, label='Signal', color='gray')
     plt.vlines(min(win, warmup_end), min(win_data), max(win_data), colors='g')
     plt.title(label)
 
