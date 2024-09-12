@@ -5,6 +5,7 @@ The utility script for performing of cumulative statistics on classification res
 import os
 import json
 
+import numpy as np
 from matplotlib import pyplot as plt
 
 data_dir = '../data'
@@ -61,6 +62,11 @@ for benchmark in classifications:
             no_agree += 1
 
 # print(no_agree, no_original_unsteady, no_new_unsteady)
+plt.figure()
+plt.bar(range(3), (no_agree, no_original_unsteady, no_new_unsteady))
+plt.xticks(range(3), ('Agreements', 'Unsteady st. (original)',
+                      'Unsteady st. (new)'))
+plt.show()
 
 # Deviations of detected steady-state when both approaches detected steadiness
 diffs = []
@@ -69,9 +75,13 @@ for benchmark in classifications:
         if -1 not in (orig_start, classifications[benchmark][1][i]):
             diffs.append(orig_start - classifications[benchmark][1][i])
 
-# plt.figure()
-# plt.hist(diffs, 30)
-# plt.show()
+plt.figure()
+plt.title('Deviations when steady-state detected via both methods')
+plt.hist(diffs, 30)
+plt.show()
+
+# Compute variance of the deviations
+print(np.var(diffs))
 
 # Deviations of warm-up detection WITHOUT respect to any other considerations of steadiness
 warmup_diffs = []
@@ -82,5 +92,9 @@ for benchmark in new_data_raw:
 
 
 plt.figure()
+plt.title('Deviations of warm-up phase detected (no Kelly!)')
 plt.hist(warmup_diffs, 30)
 plt.show()
+
+# Compute variance of the deviations
+print(np.var(warmup_diffs))
