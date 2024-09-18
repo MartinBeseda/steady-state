@@ -8,6 +8,17 @@ import json
 import numpy as np
 from matplotlib import pyplot as plt
 
+# Used parameters for SSD
+# prob_win_size=100
+# t_crit=2.1
+# step_win_size=50
+# medfilt_kernel_size=15
+prob_win_size=100
+t_crit=1.9
+step_win_size=50
+medfilt_kernel_size=15
+prob_threshold=0.9
+
 data_dir = '../data'
 path = f'{data_dir}/classification'
 
@@ -30,7 +41,7 @@ for filename in os.listdir(path):
             # Check, if steady-state was detected
             steady_start = -1
             for interval in fork['data'][::-1]:
-                if interval[1] >= 0.8:
+                if interval[1] >= prob_threshold:
                     steady_start = interval[0][0]
                 else:
                     break
@@ -63,10 +74,11 @@ for benchmark in classifications:
 
 # print(no_agree, no_original_unsteady, no_new_unsteady)
 plt.figure()
+plt.title(f't_crit={t_crit}, prob_win_size={prob_win_size},\n step_win_size={step_win_size}, medfilt_kernel_size={medfilt_kernel_size}, prob_threshold={prob_threshold}')
 plt.bar(range(3), (no_agree, no_original_unsteady, no_new_unsteady))
 plt.xticks(range(3), ('Agreements', 'Unsteady st. (original)',
                       'Unsteady st. (new)'))
-plt.show()
+plt.savefig(f'plot0_{t_crit}_{prob_win_size}_{step_win_size}_{medfilt_kernel_size}_{prob_threshold}.png')
 
 # Deviations of detected steady-state when both approaches detected steadiness
 diffs = []
@@ -76,9 +88,15 @@ for benchmark in classifications:
             diffs.append(orig_start - classifications[benchmark][1][i])
 
 plt.figure()
-plt.title('Deviations when steady-state detected via both methods')
+plt.title(f'Deviations when steady-state detected via both methods\nprob_win_size={prob_win_size}, '
+          f't_crit={t_crit}, prob_win_size={prob_win_size},\n step_win_size={step_win_size}, medfilt_kernel_size={medfilt_kernel_size}, prob_threshold={prob_threshold}')
 plt.hist(diffs, 30)
-plt.show()
+plt.savefig(f'plot1_{t_crit}_{prob_win_size}_{step_win_size}_{medfilt_kernel_size}_{prob_threshold}.png')
+
+# plt.figure()
+# plt.title('Deviations when steady-state detected via both methods (cumulative)')
+# plt.hist(diffs, 30, cumulative=True)
+# plt.show()
 
 # Compute variance of the deviations
 print(np.var(diffs))
@@ -92,9 +110,15 @@ for benchmark in new_data_raw:
 
 
 plt.figure()
-plt.title('Deviations of warm-up phase detected (no Kelly!)')
+plt.title(f'Deviations of warm-up phase detected (no Kelly!)\n'
+          f't_crit={t_crit}, prob_win_size={prob_win_size},\n step_win_size={step_win_size}, medfilt_kernel_size={medfilt_kernel_size}, prob_threshold={prob_threshold}')
 plt.hist(warmup_diffs, 30)
-plt.show()
+plt.savefig(f'plot2_{t_crit}_{prob_win_size}_{step_win_size}_{medfilt_kernel_size}_{prob_threshold}.png')
+
+# plt.figure()
+# plt.title('Deviations of warm-up phase detected (no Kelly!, cumulative)')
+# plt.hist(warmup_diffs, 30, cumulative=True)
+# plt.show()
 
 # Compute variance of the deviations
 print(np.var(warmup_diffs))
