@@ -21,6 +21,13 @@ def on_pick(event):
     plt.close(event.canvas.figure)
 
 
+def on_esc(event):
+    if event.key == 'escape':
+        db.setkey(f'{filename}_{fork_idx}', -1)
+        db.commit()
+        plt.close(event.canvas.figure)
+
+
 if __name__ == '__main__':
     for filename in os.listdir(f'{data_dir}/timeseries/all'):
         timeseries = json.load(open(os.path.join(data_dir, 'timeseries/all', filename)))
@@ -32,5 +39,6 @@ if __name__ == '__main__':
             tolerance = 10 # points
             ax.plot(range(len(fork)), fork, 'ro-', picker=tolerance)
             fig.canvas.callbacks.connect('pick_event', on_pick)
+            fig.canvas.callbacks.connect('key_press_event', on_esc)
             plt.show()
 
