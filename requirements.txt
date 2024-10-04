@@ -74,7 +74,6 @@ platformdirs==3.10.0
 ply==3.11
 prometheus-client==0.14.1
 prompt-toolkit==3.0.43
-psutil==5.9.0
 ptyprocess==0.7.0
 pure-eval==0.2.2
 pycparser==2.21
