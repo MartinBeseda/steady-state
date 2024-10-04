@@ -9,7 +9,8 @@ import numpy as np
 import simpleJDB
 import matplotlib.pyplot as plt
 
-data_dir = '../data'
+my_name = 'daniele'
+data_dir = f'data/timeseries/benchmark/{my_name}'
 db = simpleJDB.database('benchmark_database')
 
 
@@ -29,12 +30,19 @@ def on_esc(event):
 
 
 if __name__ == '__main__':
-    for filename in os.listdir(f'{data_dir}/timeseries/all'):
-        timeseries = json.load(open(os.path.join(data_dir, 'timeseries/all', filename)))
+    for filename in os.listdir(f'{data_dir}'):
+        timeseries = json.load(open(os.path.join(data_dir, filename)))
         for fork_idx, fork in enumerate(timeseries):
+            try:
+                # Do NOT reload already saved data
+                if db.getkey(f'{filename}_{fork_idx}'):
+                    continue
+            except TypeError:
+                # SimpleJDB raises TypeError when the key is not in the database - not sure about "correct" solution
+                # if I'm asking about it's existence...
+                pass
             print(f'{filename}: {fork_idx}')
             plt.close()
-            # fork = timeseries[fork_idx]
             fig, ax = plt.subplots()
             tolerance = 10 # points
             ax.plot(range(len(fork)), fork, 'ro-', picker=tolerance)
