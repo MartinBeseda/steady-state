@@ -8,8 +8,13 @@ import os
 import numpy as np
 import simpleJDB
 import matplotlib.pyplot as plt
+import sys
 
-my_name = 'daniele'
+my_name = sys.argv[1]
+
+if my_name not in ('michele', 'daniele', 'luca', 'vittorio'):
+    print("You need to specify your name in lowercase (without quotes): 'michele', 'daniele', 'luca', 'vittorio' .")
+
 data_dir = f'data/timeseries/benchmark/{my_name}'
 db = simpleJDB.database('benchmark_database')
 
