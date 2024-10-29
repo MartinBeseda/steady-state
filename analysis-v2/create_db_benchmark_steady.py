@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
 
-"""Classification tool for manually-selected steady-states."""
-
-data_dir = 'man_select_steady'
-
-#!/usr/bin/env python3
-
 """Utility script for adding benchmark elements into JSON database"""
 
 import json
