@@ -93,6 +93,13 @@ for i, e in enumerate(data_vittorio.data['main']):
                                        new_clas_idx],
                               'series': timeseries1}
 
+    # Check the correctness of the loaded timeseries
+    ref_series = json.load(open(f'../../data/timeseries/all/{fname}'))[fork_idx]
+    ref_idx = json.load(open(f'../../data/classification/{fname}'))['steady_state_starts'][fork_idx]
+
+    assert ref_series == data_sum[series_key]['series']
+    assert ref_idx == data_sum[series_key]['idxs'][-2]
+
     # Recognize the SSD reference point
     # If there's cluster (min 3 points), then take the middle point or the 3rd point (if there are 4 in the cluster)
     # If there's no cluster, take the last point, as the most conservative one
@@ -296,5 +303,3 @@ plt.close()
 
 # Save the data structure
 json.dump(data_sum, open('full_classification.json', 'w'), cls=plotly.utils.PlotlyJSONEncoder)
-
-print(data_sum.keys())
