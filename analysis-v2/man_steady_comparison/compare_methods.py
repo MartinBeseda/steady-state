@@ -61,6 +61,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     # Remove the bad filename suffix and load the filenames with fork indices
     fname, fork_idx = e['keyname'].rsplit('_', 1)[0].rsplit('_', 1)
     fork_idx = int(fork_idx)
+    series_key = f'{fname}_{fork_idx}'
 
     # The original automatic classification
     orig_clas_idx = json.load(open(f'orig_classification/{fname}'))['steady_state_starts'][fork_idx]
@@ -83,7 +84,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     # print(e['value'], data_michele.getkey(e['keyname']), data_daniele.getkey(e['keyname']),
     #       data_luca.getkey(e['keyname']), data_martin.getkey(e['keyname']), orig_clas_idx, new_clas_idx)
 
-    data_sum[e['keyname']] = {'idxs': [e['value'],
+    data_sum[series_key] = {'idxs': [e['value'],
                                        data_michele.getkey(e['keyname']),
                                        data_daniele.getkey(e['keyname']),
                                        data_luca.getkey(e['keyname']),
@@ -96,23 +97,23 @@ for i, e in enumerate(data_vittorio.data['main']):
     # If there's cluster (min 3 points), then take the middle point or the 3rd point (if there are 4 in the cluster)
     # If there's no cluster, take the last point, as the most conservative one
     dbscan_inst = sklearn.cluster.DBSCAN(eps=50, min_samples=3)
-    man_labels = np.array(data_sum[e['keyname']]['idxs'][:5])
+    man_labels = np.array(data_sum[series_key]['idxs'][:5])
     cluster_idxs = dbscan_inst.fit(np.array(man_labels).reshape(-1, 1)).labels_
 
     scattered = False
     if not (cluster_idxs > -1).any():
         scattered = True
         # continue
-        data_sum[e['keyname']]['steady_idx'] = max(man_labels)
-        data_sum[e['keyname']]['clustered'] = False
+        data_sum[series_key]['steady_idx'] = max(man_labels)
+        data_sum[series_key]['clustered'] = False
     elif sum(cluster_idxs > -1) == 4:
-        data_sum[e['keyname']]['steady_idx'] = man_labels[sorted(np.where(cluster_idxs > -1)[0])[-2]]
-        data_sum[e['keyname']]['clustered'] = True
+        data_sum[series_key]['steady_idx'] = man_labels[sorted(np.where(cluster_idxs > -1)[0])[-2]]
+        data_sum[series_key]['clustered'] = True
 
     else:
         #continue
-        data_sum[e['keyname']]['steady_idx'] = int(np.median(man_labels[np.where(cluster_idxs > -1)[0]]))
-        data_sum[e['keyname']]['clustered'] = True
+        data_sum[series_key]['steady_idx'] = int(np.median(man_labels[np.where(cluster_idxs > -1)[0]]))
+        data_sum[series_key]['clustered'] = True
 
     # print(f'Steady idx:{data_sum[e['keyname']]['steady_idx']}')
     # # Plot all the data with detected indices
@@ -133,13 +134,13 @@ for i, e in enumerate(data_vittorio.data['main']):
     # plt.close()
 
     # Compute differences of results
-    if -1 not in data_sum[e['keyname']]['idxs'][-2:]:
+    if -1 not in data_sum[series_key]['idxs'][-2:]:
         if scattered:
-            orig_diffs_scattered.append(data_sum[e['keyname']]['steady_idx'] - data_sum[e['keyname']]['idxs'][-2])
-            new_diffs_scattered.append(data_sum[e['keyname']]['steady_idx'] - data_sum[e['keyname']]['idxs'][-1])
+            orig_diffs_scattered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs'][-2])
+            new_diffs_scattered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs'][-1])
         else:
-            orig_diffs_clustered.append(data_sum[e['keyname']]['steady_idx'] - data_sum[e['keyname']]['idxs'][-2])
-            new_diffs_clustered.append(data_sum[e['keyname']]['steady_idx'] - data_sum[e['keyname']]['idxs'][-1])
+            orig_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs'][-2])
+            new_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs'][-1])
 
 # No. unsteady series detected
 no_unsteady_orig = 0
@@ -295,3 +296,5 @@ plt.close()
 
 # Save the data structure
 json.dump(data_sum, open('full_classification.json', 'w'), cls=plotly.utils.PlotlyJSONEncoder)
+
+print(data_sum.keys())
