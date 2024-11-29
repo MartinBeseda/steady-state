@@ -63,6 +63,30 @@ def remove_outliers_percentile(arr: np.ndarray | list,
     return np.concatenate(new_subarrays), np.concatenate(outliers)
 
 
+def substitute_outliers_percentile(arr: np.ndarray | list,
+                               window_size: int = 100,
+                               percentile_threshold_upper: int = 99,
+                               percentile_threshold_lower: int = 1) -> tuple[np.ndarray, np.ndarray]:
+    subarrays = np.array_split(arr[1:], int(len(arr[1:]) / int(window_size)))
+    new_subarrays = [np.array(arr[0]).flatten()]
+    outliers = []
+
+    for subarr in subarrays:
+        perc_up = np.percentile(subarr, percentile_threshold_upper)
+        perc_low = np.percentile(subarr, percentile_threshold_lower)
+
+        outliers_idxs = np.concatenate((np.where(subarr > perc_up)[0], np.where(subarr < perc_low)[0]))
+
+        for idx in outliers_idxs:
+            subarr[idx] = np.median(subarr)
+
+        new_subarrays.append(subarr)
+
+        outliers.append(outliers_idxs)
+
+    return np.concatenate(new_subarrays), np.concatenate(outliers)
+
+
 def ssd_Kelly(x: np.ndarray, n: int, t_crit: float) -> np.ndarray:
     P = np.zeros(len(x))
 
@@ -85,8 +109,8 @@ def ssd_Kelly(x: np.ndarray, n: int, t_crit: float) -> np.ndarray:
             if intervals:
                 intervals[-1][1] = to_idx
             else:
-                print('There are too few points provided for Kelly to determine the steadiness probability! '
-                      'The probabilities for these points are gonna be set to -1.')
+                # print('There are too few points provided for Kelly to determine the steadiness probability! '
+                #       'The probabilities for these points are gonna be set to -1.')
 
                 intervals.append([from_idx, to_idx])
                 P[from_idx:to_idx] = -1
@@ -227,7 +251,6 @@ def print_fork(timeseries: np.ndarray, P: np.ndarray, warmup_end: int, classific
 
 def get_compact_result(P: np.ndarray, warmup_end: int) -> dict:
     results = {'data': list(), 'warm_start_detected': True if warmup_end > -1 else False}
-
     # Print steadiness probabilities
     idx_start = 0
     len_series = len(P)
@@ -256,13 +279,30 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
     step = np.hstack((np.ones(len(data)), -1 * np.ones(len(data))))
     timeseries_step = np.convolve(data, step, mode='valid')
     large_kernel_step_idx = np.argmin(timeseries_step) - 1
+    large_up = np.argmax(timeseries_step) -1
 
     # Detect step in the data with small convolution kernel (4 elements) to take data tails into account
-    filter_len = 10
+    filter_len = 15
     step2 = np.array(filter_len*[1]+filter_len*[-1])
     timeseries_step2 = np.convolve(data, step2, mode='valid')
     small_kernel_step_idx = np.argmin(timeseries_step2) + filter_len - 1
+    small_up = np.argmax(timeseries_step2) + filter_len- 1
 
+    #return np.min(np.array([large_up, large_kernel_step_idx, small_up, small_kernel_step_idx])), timeseries_step
+
+    print(small_kernel_step_idx, large_kernel_step_idx, small_up, large_up)
+    # plt.figure()
+    # plt.plot(timeseries_step)
+    # plt.title(f'Convolution with larger kernel')
+    # plt.savefig('convolution_larger')
+    # plt.close()
+    #
+    # plt.figure()
+    # plt.plot(timeseries_step2)
+    # plt.title(f'Convolution with smaller kernel')
+    # plt.savefig('convolution_smaller')
+    # plt.close()
+    # exit(-1)
     # If the step is detected in the very last sample of the series, we consider it non-existent
     if large_kernel_step_idx == len(data) - 1:
         large_kernel_step_idx = -1
@@ -277,15 +317,9 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
 
     step_idx = -1
 
+
     # If large kernel detected a step, continue with its processing
     if large_kernel_step_idx > -1:
-        # Check, whether the steps are significant enough and which one to accept, if any, based on median difference of
-        # their surrounding windows
-        large_left_win = data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]
-        large_right_win = data[large_kernel_step_idx + 1:min(large_kernel_step_idx + win_size + 1, data_len)]
-
-        # Difference of medians of windows around the detected "large step"
-        large_diff = np.median(large_left_win) - np.median(large_right_win)
 
         if small_kernel_step_idx > large_kernel_step_idx:
             # If "short kernel detection" is at larger index than "large window" one, switch them for convenience
@@ -298,12 +332,22 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
         if small_kernel_step_idx == 0:
             return large_kernel_step_idx, timeseries_step
 
+        # Check, whether the steps are significant enough and which one to accept, if any, based on median difference of
+        # their surrounding windows
+        large_left_win = data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]
+        large_right_win = data[large_kernel_step_idx + 1:min(large_kernel_step_idx + win_size + 1, data_len)]
+
+        # Difference of medians of windows around the detected "large step"
+        large_diff = np.median(large_left_win) - np.median(large_right_win)
+
+
+
         # Choose the step detected via "short kernel" as a default one
         step_idx = small_kernel_step_idx
         right_med = np.median(data[large_kernel_step_idx+1:])
 
         # Check, if the step detected via "short kernel" is significant enough, otherwise take the "large kernel" one
-        if np.median(data[small_kernel_step_idx+1:large_kernel_step_idx]) > 0.5 * np.abs(large_diff) + right_med:
+        if np.median(data[small_kernel_step_idx+1:large_kernel_step_idx]) > 2.0*np.abs(large_diff) + right_med:
             step_idx = large_kernel_step_idx
 
     elif small_kernel_step_idx > -1:
@@ -315,6 +359,19 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
         else:
             return -1, timeseries_step
 
+    # up_step = max(large_up, small_up)
+    # if up_step >= data_len - 1:
+    #     return step_idx, timeseries_step
+    # up_left_win = data[max(up_step - win_size, 0):up_step + 1]
+    # up_right_win = data[up_step + 1:min(up_step + win_size + 1, data_len)]
+    # up_diff = np.median(up_right_win) - np.median(up_left_win)
+    #
+    # chosen_left_win = data[max(step_idx - win_size, 0):step_idx + 1]
+    # chosen_right_win = data[step_idx + 1:min(step_idx + win_size + 1, data_len)]
+    # chosen_diff = np.median(chosen_left_win) - np.median(chosen_right_win)
+    # if up_diff > 2*chosen_diff:
+    #     step_idx = up_step
+    #     print(f'Chosen UP')
     return step_idx, timeseries_step
 
 
@@ -335,6 +392,8 @@ def detect_steady_state(x: np.ndarray | list,
                         t_crit: float,
                         step_win_size: int = 150,
                         medfilt_kernel_size: int = 15) -> tuple[np.ndarray, int]:
+    # TODO probably substitute outliers with the median of their surroundings
+
     # Apply median filter to data for warm-up detection
     x_smooth = ssi.medfilt(x, kernel_size=medfilt_kernel_size)
 
@@ -366,3 +425,104 @@ def detect_steady_state(x: np.ndarray | list,
         probabilities = ssd_Kelly(x, prob_win_size, t_crit)
 
     return probabilities, warmup_end
+
+
+def get_ssd_idx(compact_result: dict, prob_threshold: float, min_steady_length: int = 500) -> int:
+    """Obtain an index of steady-state start or -1,
+    if the timeseries is unsteady by parsing of the full result."""
+
+    # if not compact_result['warm_start_detected']:
+    #     return -1
+
+    new_steadiness_idx = -1
+    for interval in compact_result['data'][::-1]:
+        if interval[1] >= prob_threshold:
+            new_steadiness_idx = interval[0][0]
+        else:
+            break
+
+    if new_steadiness_idx > compact_result['data'][-1][0][1] - min_steady_length:
+        new_steadiness_idx = -1
+
+
+    return new_steadiness_idx
+
+
+def true_positives(T, X, margin=5):
+    """Compute true positives without double counting
+
+    >>> true_positives({1, 10, 20, 23}, {3, 8, 20})
+    {1, 10, 20}
+    >>> true_positives({1, 10, 20, 23}, {1, 3, 8, 20})
+    {1, 10, 20}
+    >>> true_positives({1, 10, 20, 23}, {1, 3, 5, 8, 20})
+    {1, 10, 20}
+    >>> true_positives(set(), {1, 2, 3})
+    set()
+    >>> true_positives({1, 2, 3}, set())
+    set()
+    """
+    # make a copy so we don't affect the caller
+    X = set(list(X))
+    TP = set()
+    for tau in T:
+        close = [(abs(tau - x), x) for x in X if abs(tau - x) <= margin]
+        close.sort()
+        if not close:
+            continue
+        dist, xstar = close[0]
+        TP.add(tau)
+        X.remove(xstar)
+    return TP
+
+
+def f_measure(annotations, predictions, margin=5, alpha=0.5, return_PR=False):
+    """Compute the F-measure based on human annotations.
+
+    annotations : dict from user_id to iterable of CP locations
+    predictions : iterable of predicted CP locations
+    alpha : value for the F-measure, alpha=0.5 gives the F1-measure
+    return_PR : whether to return precision and recall too
+
+    Remember that all CP locations are 0-based!
+
+    >>> f_measure({1: [10, 20], 2: [11, 20], 3: [10], 4: [0, 5]}, [10, 20])
+    1.0
+    >>> f_measure({1: [], 2: [10], 3: [50]}, [10])
+    0.9090909090909091
+    >>> f_measure({1: [], 2: [10], 3: [50]}, [])
+    0.8
+    """
+    # ensure 0 is in all the sets
+    Tks = {k + 1: set(annotations[uid]) for k, uid in enumerate(annotations)}
+    for Tk in Tks.values():
+        Tk.add(0)
+
+    X = set(predictions)
+    X.add(0)
+
+    Tstar = set()
+    for Tk in Tks.values():
+        for tau in Tk:
+            Tstar.add(tau)
+
+    K = len(Tks)
+
+    P = len(true_positives(Tstar, X, margin=margin)) / len(X)
+
+    TPk = {k: true_positives(Tks[k], X, margin=margin) for k in Tks}
+    R = 1 / K * sum(len(TPk[k]) / len(Tks[k]) for k in Tks)
+
+    F = P * R / (alpha * R + (1 - alpha) * P)
+    if return_PR:
+        return F, P, R
+    return F
+
+
+def harmonic_mean_of_diffs(prediction: float, references: list[float]) -> float:
+    try:
+        return len(references) / sum(1/np.abs(prediction - e + 1e-10) for e in references)
+    except FloatingPointError:
+        print(prediction)
+        print(references)
+        exit(-1)
