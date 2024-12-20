@@ -67,7 +67,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     orig_clas_idx = json.load(open(f'orig_classification/{fname}'))['steady_state_starts'][fork_idx]
 
     # Load the corresponding timeseries
-    timeseries = json.load(open(f'data_st/{fname}_{fork_idx}'))
+    timeseries = json.load(open(f'../sensitivity_analysis/data_st/{fname}_{fork_idx}'))
     timeseries1 = timeseries.copy()
     timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=85,
                                                        percentile_threshold_lower=2,
@@ -76,10 +76,10 @@ for i, e in enumerate(data_vittorio.data['main']):
     #timeseries = ssi.medfilt(timeseries, kernel_size=3)
 
     # Apply the new approach
-    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=500, t_crit=4.5, step_win_size=80,
+    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=500, t_crit=3.5, step_win_size=80,
                                             medfilt_kernel_size=1)
     res = ssd.get_compact_result(P, warmup_end)
-    new_clas_idx = ssd.get_ssd_idx(res, 0.85, min_steady_length=0)
+    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=0.85, min_steady_length=0)
 
     # print(e['value'], data_michele.getkey(e['keyname']), data_daniele.getkey(e['keyname']),
     #       data_luca.getkey(e['keyname']), data_martin.getkey(e['keyname']), orig_clas_idx, new_clas_idx)
