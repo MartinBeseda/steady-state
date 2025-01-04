@@ -150,23 +150,74 @@ for i, e in enumerate(data_vittorio.data['main']):
             new_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs'][-1])
 
 # No. unsteady series detected
-no_unsteady_orig = 0
-no_unsteady_new = 0
+no_unsteady_orig_scattered = 0
+no_unsteady_orig_clustered = 0
+no_unsteady_new_scattered = 0
+no_unsteady_new_clustered = 0
 
 for k, v in data_sum.items():
     if v['idxs'][-2] == -1:
-        no_unsteady_orig += 1
+        if v['clustered']:
+            no_unsteady_orig_clustered += 1
+        else:
+            no_unsteady_orig_scattered += 1
     if v['idxs'][-1] == -1:
-        no_unsteady_new += 1
+        if v['clustered']:
+            no_unsteady_new_clustered += 1
+        else:
+            no_unsteady_new_scattered += 1
 
 # Plot bar plots comparing numbers of incorrectly detected unsteady series
 # print(no_unsteady_orig, no_unsteady_new)
 plt.figure()
 plt.title('No. unsteady series detected')
-plt.bar([1, 2], [no_unsteady_orig, no_unsteady_new], tick_label=['Orig', 'New'])
+plt.bar([1, 2, 3, 4],
+        [no_unsteady_orig_scattered, no_unsteady_orig_clustered, no_unsteady_new_scattered,
+         no_unsteady_new_clustered],
+        tick_label=['Orig scat', 'Orig clust', 'New scat', 'New clust'])
 plt.savefig('barplots/no_unsteady.png')
 plt.close()
 
+
+# Plot the number of steadiness detections on larger dataset
+larger_data = json.load(open('benchmark_database_binary.json'))
+no_agreements_orig = 0
+no_agreements_new = 0
+for e in larger_data['main']:
+    fork_name, fork_idx = e['keyname'].rsplit('_', 1)
+    fork_idx = int(fork_idx)
+
+    is_steady = True if e['value'] > -1 else False
+
+    # Obtain the original classification
+    orig_classification = True \
+        if json.load(open(f'orig_classification/{fork_name}'))['steady_state_starts'][fork_idx] > -1 else False
+
+    if is_steady == orig_classification:
+        no_agreements_orig += 1
+
+    # Detect steadiness via the new approach
+    # Load the corresponding timeseries
+    timeseries = json.load(open(f'data_st/{fname}_{fork_idx}'))
+    timeseries1 = timeseries.copy()
+    timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=85,
+                                                       percentile_threshold_lower=2,
+                                                       window_size=100)
+    timeseries2 = timeseries.copy()
+    # timeseries = ssi.medfilt(timeseries, kernel_size=3)
+
+    # Apply the new approach
+    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=500, t_crit=3.5, step_win_size=80,
+                                            medfilt_kernel_size=1)
+    res = ssd.get_compact_result(P, warmup_end)
+    new_clas_idx = True if ssd.get_ssd_idx(res, prob_threshold=0.85, min_steady_length=0) > -1 else False
+
+    if is_steady == new_clas_idx:
+        no_agreements_new += 1
+
+print(no_agreements_orig, no_agreements_new)
+
+exit(-1)
 
 # Plot histogram of SSD differences for clustered points
 mean_orig, std_orig = norm.fit(orig_diffs_clustered)
