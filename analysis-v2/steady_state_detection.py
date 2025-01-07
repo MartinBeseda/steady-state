@@ -441,6 +441,7 @@ def get_ssd_idx(compact_result: dict, prob_threshold: float, min_steady_length: 
         else:
             break
 
+
     if new_steadiness_idx > compact_result['data'][-1][0][1] - min_steady_length:
         new_steadiness_idx = -1
 

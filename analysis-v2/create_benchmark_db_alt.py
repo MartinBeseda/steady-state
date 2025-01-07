@@ -29,6 +29,7 @@ def on_pick(event):
 
 
 def on_esc(event):
+
     if event.key == 'escape':
         db.setkey(f'{filename}_{fork_idx}', -1)
         db.commit()

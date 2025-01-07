@@ -1,0 +1,45 @@
+/home/martinb/anaconda3/envs/timeseries/bin/python /home/martinb/steady-state/analysis-v2/timeseries_classes.py 
+Loading data
+Number of filenames: 586
+Non-normalized data:
+Performing HDBSCAN with MAE:
+[55 55 55 ... -1 -1 -1]
+<class 'numpy.ndarray'>
+201 -1
+5860
+2225
+Performing HDBSCAN with MSE:
+[57 57 57 ... -1 -1 -1]
+<class 'numpy.ndarray'>
+200 -1
+5860
+3197
+Shifted data:
+Performing HDBSCAN with MAE:
+[37 37 37 ... -1 -1 -1]
+<class 'numpy.ndarray'>
+194 -1
+5860
+2490
+Performing HDBSCAN with MSE:
+[31 31 31 ... -1 -1 -1]
+<class 'numpy.ndarray'>
+161 -1
+5860
+3395
+Normalized data:
+Performing HDBSCAN with MAE:
+[ 5  5 -1 ... -1 -1 -1]
+<class 'numpy.ndarray'>
+34 -1
+5860
+5451
+Performing HDBSCAN with MSE:
+[ 6  6 -1 ... -1 -1 -1]
+<class 'numpy.ndarray'>
+36 -1
+5860
+5446
+
+Process finished with exit code 0
+

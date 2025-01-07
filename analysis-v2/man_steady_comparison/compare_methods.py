@@ -69,7 +69,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     # Load the corresponding timeseries
     timeseries = json.load(open(f'../sensitivity_analysis/data_st/{fname}_{fork_idx}'))
     timeseries1 = timeseries.copy()
-    timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=85,
+    timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=98,
                                                        percentile_threshold_lower=2,
                                                        window_size=100)
     timeseries2 = timeseries.copy()
@@ -79,7 +79,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=500, t_crit=3.5, step_win_size=80,
                                             medfilt_kernel_size=1)
     res = ssd.get_compact_result(P, warmup_end)
-    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=0.85, min_steady_length=0)
+    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=0.9, min_steady_length=0)
 
     # print(e['value'], data_michele.getkey(e['keyname']), data_daniele.getkey(e['keyname']),
     #       data_luca.getkey(e['keyname']), data_martin.getkey(e['keyname']), orig_clas_idx, new_clas_idx)
@@ -183,24 +183,30 @@ plt.close()
 larger_data = json.load(open('benchmark_database_binary.json'))
 no_agreements_orig = 0
 no_agreements_new = 0
+n_std = 0
+n_std_new=0
+n_std_orig=0
 for e in larger_data['main']:
     fork_name, fork_idx = e['keyname'].rsplit('_', 1)
     fork_idx = int(fork_idx)
 
     is_steady = True if e['value'] > -1 else False
-
+    print(e['value'])
+    if is_steady:
+        n_std += 1
     # Obtain the original classification
     orig_classification = True \
         if json.load(open(f'orig_classification/{fork_name}'))['steady_state_starts'][fork_idx] > -1 else False
-
+    if orig_classification:
+        n_std_orig+=1
     if is_steady == orig_classification:
         no_agreements_orig += 1
 
     # Detect steadiness via the new approach
     # Load the corresponding timeseries
-    timeseries = json.load(open(f'data_st/{fname}_{fork_idx}'))
+    timeseries = json.load(open(f'data_st/{fork_name}'))[fork_idx]
     timeseries1 = timeseries.copy()
-    timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=85,
+    timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=98,
                                                        percentile_threshold_lower=2,
                                                        window_size=100)
     timeseries2 = timeseries.copy()
@@ -210,14 +216,15 @@ for e in larger_data['main']:
     P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=500, t_crit=3.5, step_win_size=80,
                                             medfilt_kernel_size=1)
     res = ssd.get_compact_result(P, warmup_end)
-    new_clas_idx = True if ssd.get_ssd_idx(res, prob_threshold=0.85, min_steady_length=0) > -1 else False
 
+    new_clas_idx = True if ssd.get_ssd_idx(res, prob_threshold=0.9, min_steady_length=0) > -1 else False
+    if new_clas_idx:
+        n_std_new +=1
     if is_steady == new_clas_idx:
         no_agreements_new += 1
-
+print(n_std, n_std_orig, n_std_new)
 print(no_agreements_orig, no_agreements_new)
 
-exit(-1)
 
 # Plot histogram of SSD differences for clustered points
 mean_orig, std_orig = norm.fit(orig_diffs_clustered)

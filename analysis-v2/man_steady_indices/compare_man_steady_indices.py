@@ -78,12 +78,15 @@ for k, e in data_sum.items():
     no_cluster_dbscan_eps20 += (dbscan_eps20.fit(np.array(e['idxs']).reshape(-1, 1)).labels_ > -1).any()
 
 
-for k, e in diffs.items():
-    plt.figure()
-    plt.title(f'Differences idx {k}')
-    plt.hist(e, bins=30)
-    plt.savefig(f'histograms/diffs_{k}.png')
-    plt.close()
+# for k, e in diffs.items():
+#     plt.figure()
+#     plt.title(f'Differences idx {k}')
+#     plt.hist(e, bins=30)
+#     plt.savefig(f'histograms/diffs_{k}.png')
+#     plt.close()
+
+print(sum([1 for e in diff_mads if e <= 100]))
+exit(-1)
 
 plt.figure()
 plt.hist(diffs.values(), label=diffs.keys(), bins=15)

@@ -10,12 +10,8 @@ import simpleJDB
 import matplotlib.pyplot as plt
 import sys
 
-my_name = sys.argv[1]
+from matplotlib import font_manager
 
-if my_name not in ('michele', 'daniele', 'luca', 'vittorio'):
-    print("You need to specify your name in lowercase (without quotes): 'michele', 'daniele', 'luca', 'vittorio' .")
-
-data_dir = f'data/timeseries/benchmark/{my_name}'
 db = simpleJDB.database('benchmark_database')
 
 
@@ -35,6 +31,17 @@ def on_esc(event):
 
 
 if __name__ == '__main__':
+    # my_name = sys.argv[1]
+    #
+    # if my_name not in ('michele', 'daniele', 'luca', 'vittorio'):
+    #     print("You need to specify your name in lowercase (without quotes): 'michele', 'daniele', 'luca', 'vittorio' .")
+
+    font_prop = font_manager.FontProperties(size=34)
+
+    # data_dir = f'data/timeseries/benchmark/{my_name}'
+    # TODO 'daniele', 'michele' was done
+    data_dir = (f'data/timeseries/benchmark/luca')
+
     for filename in os.listdir(f'{data_dir}'):
         timeseries = json.load(open(os.path.join(data_dir, filename)))
         for fork_idx, fork in enumerate(timeseries):
@@ -48,8 +55,11 @@ if __name__ == '__main__':
                 pass
             print(f'{filename}: {fork_idx}')
             plt.close()
+            # plt.tight_layout()
             fig, ax = plt.subplots()
             tolerance = 10 # points
+            plt.xticks(fontsize=34)
+            plt.yticks(fontsize=34)
             ax.plot(range(len(fork)), fork, 'ro-', picker=tolerance)
             fig.canvas.callbacks.connect('pick_event', on_pick)
             fig.canvas.callbacks.connect('key_press_event', on_esc)
