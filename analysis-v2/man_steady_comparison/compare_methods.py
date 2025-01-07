@@ -225,6 +225,12 @@ for e in larger_data['main']:
 print(n_std, n_std_orig, n_std_new)
 print(no_agreements_orig, no_agreements_new)
 
+# Plot the number of agreements with the larger dataset containing even unsteady timeseries
+plt.figure()
+plt.title('Number of agreements w.r.t. steadiness (larger dataset)')
+plt.bar([1, 2], [no_agreements_orig, no_agreements_new], tick_label=['Orig', 'New'])
+plt.savefig('barplots/larger_set_agreements.png')
+plt.close()
 
 # Plot histogram of SSD differences for clustered points
 mean_orig, std_orig = norm.fit(orig_diffs_clustered)
