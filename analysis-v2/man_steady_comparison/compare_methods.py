@@ -37,6 +37,58 @@ from scipy.stats import norm
 #     fork_idx = int(fork_idx)
 #     shutil.copyfile(f'../../data/classification/{fname}', f'orig_classification/{fname}')
 
+
+# Define the cost function for the parameter optimization
+# We use not only the sum of square errors for the deviations from the ground truth, but also disagreements with the
+# larger dataset considering only detected (un)steadiness
+def cost_func(prob_win_size, t_crit, step_win_size, prob_threshold, min_steady_length, larger_data, steady_data_sum):
+    cost = 0
+
+    # Penalize incorrect (un)steadiness detections
+    no_elements = len(larger_data['main'])
+    no_agreements_new = 0
+    n_std = 0
+    n_std_new = 0
+    for e in larger_data['main']:
+        fork_name, fork_idx = e['keyname'].rsplit('_', 1)
+        fork_idx = int(fork_idx)
+
+        is_steady = True if e['value'] > -1 else False
+        print(e['value'])
+        if is_steady:
+            n_std += 1
+
+        # Detect steadiness via the new approach
+        # Load the corresponding timeseries
+        timeseries = json.load(open(f'data_st/{fork_name}'))[fork_idx]
+        timeseries1 = timeseries.copy()
+        timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=98,
+                                                           percentile_threshold_lower=2,
+                                                           window_size=100)
+        timeseries2 = timeseries.copy()
+        # timeseries = ssi.medfilt(timeseries, kernel_size=3)
+
+        # Apply the new approach
+        P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=prob_win_size, t_crit=t_crit,
+                                                step_win_size=step_win_size, medfilt_kernel_size=1)
+        res = ssd.get_compact_result(P, warmup_end)
+
+        new_clas_idx = True if ssd.get_ssd_idx(res, prob_threshold=prob_threshold,
+                                               min_steady_length=min_steady_length) > -1 else False
+        if new_clas_idx:
+            n_std_new += 1
+        if is_steady == new_clas_idx:
+            no_agreements_new += 1
+
+        # Evaluate deviations from the steady ground truth dataset
+        if f'{fork_name}_{fork_idx}' in steady_data_sum:
+            cost += (steady_data_sum[f'{fork_name}_{fork_idx}']['steady_idx'] - new_clas_idx)**2
+
+    cost += (no_elements - no_agreements_new)**8
+
+    return cost
+
+
 # Load the data together with manual labeling and the original auto-classification
 data_vittorio = simpleJDB.database('benchmark_database_steady_indices_vittorio')
 data_michele = simpleJDB.database('benchmark_database_steady_indices_michele')
@@ -85,13 +137,13 @@ for i, e in enumerate(data_vittorio.data['main']):
     #       data_luca.getkey(e['keyname']), data_martin.getkey(e['keyname']), orig_clas_idx, new_clas_idx)
 
     data_sum[series_key] = {'idxs': [e['value'],
-                                       data_michele.getkey(e['keyname']),
-                                       data_daniele.getkey(e['keyname']),
-                                       data_luca.getkey(e['keyname']),
-                                       data_martin.getkey(e['keyname']),
-                                       orig_clas_idx,
-                                       new_clas_idx],
-                              'series': timeseries1}
+                                     data_michele.getkey(e['keyname']),
+                                     data_daniele.getkey(e['keyname']),
+                                     data_luca.getkey(e['keyname']),
+                                     data_martin.getkey(e['keyname']),
+                                     orig_clas_idx,
+                                     new_clas_idx],
+                            'series': timeseries1}
 
     # Check the correctness of the loaded timeseries
     ref_series = json.load(open(f'../../data/timeseries/all/{fname}'))[fork_idx]
@@ -224,6 +276,13 @@ for e in larger_data['main']:
         no_agreements_new += 1
 print(n_std, n_std_orig, n_std_new)
 print(no_agreements_orig, no_agreements_new)
+
+print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_threshold=0.9, min_steady_length=0,
+                         larger_data=larger_data, steady_data_sum=data_sum)}')
+print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_threshold=0.7, min_steady_length=0,
+                         larger_data=larger_data, steady_data_sum=data_sum)}')
+print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=200, prob_threshold=0.9, min_steady_length=0,
+                         larger_data=larger_data, steady_data_sum=data_sum)}')
 
 # Plot the number of agreements with the larger dataset containing even unsteady timeseries
 plt.figure()
