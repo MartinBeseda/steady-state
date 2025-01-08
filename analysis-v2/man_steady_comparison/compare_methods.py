@@ -18,6 +18,7 @@ import steady_state_detection as ssd
 import scipy.signal as ssi
 import sklearn.cluster
 from scipy.stats import norm
+from scipy.optimize import differential_evolution
 
 # # Are the data labeled OK? They are - the following code checks it.
 # for f in os.listdir('../man_steady_indices/data_st'):
@@ -283,6 +284,16 @@ print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_t
                          larger_data=larger_data, steady_data_sum=data_sum)}')
 print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=200, prob_threshold=0.9, min_steady_length=0,
                          larger_data=larger_data, steady_data_sum=data_sum)}')
+
+# TODO optimize including integer variables - use of package 'wrapdisc'
+print(f'cost opt: {differential_evolution(lambda inp: cost_func(prob_win_size=500,
+                                                                t_crit=inp[0],
+                                                                step_win_size=80,
+                                                                prob_threshold=inp[1],
+                                                                min_steady_length=0,
+                                                                larger_data=larger_data,
+                                                                steady_data_sum=data_sum),
+                                          [(2.5, 6), (0.6, 0.95)])}')
 
 # Plot the number of agreements with the larger dataset containing even unsteady timeseries
 plt.figure()
