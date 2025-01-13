@@ -290,7 +290,7 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
 
     #return np.min(np.array([large_up, large_kernel_step_idx, small_up, small_kernel_step_idx])), timeseries_step
 
-    print(small_kernel_step_idx, large_kernel_step_idx, small_up, large_up)
+    # print(small_kernel_step_idx, large_kernel_step_idx, small_up, large_up)
     # plt.figure()
     # plt.plot(timeseries_step)
     # plt.title(f'Convolution with larger kernel')

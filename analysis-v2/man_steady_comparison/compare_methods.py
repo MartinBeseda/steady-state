@@ -272,28 +272,30 @@ for e in larger_data['main']:
 
     new_clas_idx = True if ssd.get_ssd_idx(res, prob_threshold=0.9, min_steady_length=0) > -1 else False
     if new_clas_idx:
-        n_std_new +=1
+        n_std_new += 1
     if is_steady == new_clas_idx:
         no_agreements_new += 1
 print(n_std, n_std_orig, n_std_new)
 print(no_agreements_orig, no_agreements_new)
 
-print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_threshold=0.9, min_steady_length=0,
-                         larger_data=larger_data, steady_data_sum=data_sum)}')
-print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_threshold=0.7, min_steady_length=0,
-                         larger_data=larger_data, steady_data_sum=data_sum)}')
-print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=200, prob_threshold=0.9, min_steady_length=0,
-                         larger_data=larger_data, steady_data_sum=data_sum)}')
-
-# TODO optimize including integer variables - use of package 'wrapdisc'
-print(f'cost opt: {differential_evolution(lambda inp: cost_func(prob_win_size=500,
-                                                                t_crit=inp[0],
-                                                                step_win_size=80,
-                                                                prob_threshold=inp[1],
-                                                                min_steady_length=0,
-                                                                larger_data=larger_data,
-                                                                steady_data_sum=data_sum),
-                                          [(2.5, 6), (0.6, 0.95)])}')
+# Compute the optimal parameters via differential evolution
+#
+# print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_threshold=0.9, min_steady_length=0,
+#                          larger_data=larger_data, steady_data_sum=data_sum)}')
+# print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_threshold=0.7, min_steady_length=0,
+#                          larger_data=larger_data, steady_data_sum=data_sum)}')
+# print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=200, prob_threshold=0.9, min_steady_length=0,
+#                          larger_data=larger_data, steady_data_sum=data_sum)}')
+#
+# # TODO optimize including integer variables - use package 'wrapdisc'
+# print(f'cost opt: {differential_evolution(lambda inp: cost_func(prob_win_size=500,
+#                                                                 t_crit=inp[0],
+#                                                                 step_win_size=80,
+#                                                                 prob_threshold=inp[1],
+#                                                                 min_steady_length=0,
+#                                                                 larger_data=larger_data,
+#                                                                 steady_data_sum=data_sum),
+#                                           [(2.5, 6), (0.6, 0.95)])}')
 
 # Plot the number of agreements with the larger dataset containing even unsteady timeseries
 plt.figure()
