@@ -235,10 +235,16 @@ plt.close()
 # Plot the number of steadiness detections on larger dataset
 larger_data = json.load(open('benchmark_database_binary.json'))
 no_agreements_orig = 0
+false_positives_orig = 0
+false_negatives_orig = 0
 no_agreements_new = 0
+false_positives_new = 0
+false_negatives_new = 0
+n_total_agreements = 0
+n_method_agreements = 0
 n_std = 0
-n_std_new=0
-n_std_orig=0
+n_std_new = 0
+n_std_orig = 0
 for e in larger_data['main']:
     fork_name, fork_idx = e['keyname'].rsplit('_', 1)
     fork_idx = int(fork_idx)
@@ -251,9 +257,13 @@ for e in larger_data['main']:
     orig_classification = True \
         if json.load(open(f'orig_classification/{fork_name}'))['steady_state_starts'][fork_idx] > -1 else False
     if orig_classification:
-        n_std_orig+=1
+        n_std_orig += 1
     if is_steady == orig_classification:
         no_agreements_orig += 1
+    elif not is_steady and orig_classification:
+        false_positives_orig += 1
+    else:
+        false_negatives_orig += 1
 
     # Detect steadiness via the new approach
     # Load the corresponding timeseries
@@ -275,27 +285,80 @@ for e in larger_data['main']:
         n_std_new += 1
     if is_steady == new_clas_idx:
         no_agreements_new += 1
+    elif not is_steady and new_clas_idx:
+        false_positives_new += 1
+    else:
+        false_negatives_new += 1
+
+    # Both methods and the ground truth agree with each other
+    if is_steady and new_clas_idx and orig_classification:
+        n_total_agreements += 1
+
+    # Both methods agree with each other, but not with the ground truth
+    if not is_steady and new_clas_idx and orig_classification:
+        n_method_agreements += 1
+
 print(n_std, n_std_orig, n_std_new)
 print(no_agreements_orig, no_agreements_new)
+print(false_positives_orig, false_negatives_orig, false_positives_new, false_negatives_new)
+print(n_total_agreements, n_method_agreements)
 
-# Compute the optimal parameters via differential evolution
-#
-# print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_threshold=0.9, min_steady_length=0,
-#                          larger_data=larger_data, steady_data_sum=data_sum)}')
-# print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=80, prob_threshold=0.7, min_steady_length=0,
-#                          larger_data=larger_data, steady_data_sum=data_sum)}')
-# print(f'cost: {cost_func(prob_win_size=500, t_crit=3.5, step_win_size=200, prob_threshold=0.9, min_steady_length=0,
-#                          larger_data=larger_data, steady_data_sum=data_sum)}')
-#
-# # TODO optimize including integer variables - use package 'wrapdisc'
-# print(f'cost opt: {differential_evolution(lambda inp: cost_func(prob_win_size=500,
-#                                                                 t_crit=inp[0],
-#                                                                 step_win_size=80,
-#                                                                 prob_threshold=inp[1],
-#                                                                 min_steady_length=0,
-#                                                                 larger_data=larger_data,
-#                                                                 steady_data_sum=data_sum),
-#                                           [(2.5, 6), (0.6, 0.95)])}')
+
+fig, ax = plt.subplots()
+bar_width = 0.35
+bar_positions = np.arange(2)
+# Data for original and new
+no_agreements = [no_agreements_orig, no_agreements_new]
+false_positives = [false_positives_orig, false_positives_new]
+false_negatives = [false_negatives_orig, false_negatives_new]
+
+# Create the figure and axes
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
+
+# First subplot for original data
+ax1.bar(bar_positions[0], no_agreements[0], bar_width, label='No Agreements (Orig)', color='lightgrey')
+ax1.bar(bar_positions[0] -bar_width/4, false_positives[0], bar_width/2, label='False Positives (Orig)', color='red')
+ax1.bar(bar_positions[0] + bar_width/4, false_negatives[0], bar_width/2, label='False Negatives (Orig)', color='blue')
+
+# Add horizontal lines to the first subplot (Original)
+ax1.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', label='Total Agreements')
+ax1.axhline(y=n_method_agreements, color='black', linewidth=3, linestyle='-.', label='Method Agreements')
+
+# Second subplot for new data
+ax2.bar(bar_positions[1], no_agreements[1], bar_width, label='No Agreements (New)', color='lightgrey')
+ax2.bar(bar_positions[1] - bar_width/4, false_positives[1], bar_width/2, label='False Positives (New)', color='red')
+ax2.bar(bar_positions[1] + bar_width/4, false_negatives[1], bar_width/2, label='False Negatives (New)', color='blue')
+
+# Add horizontal lines to the second subplot (New)
+ax2.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', label='Total Agreements')
+ax2.axhline(y=n_method_agreements, color='black', linewidth=3,linestyle='-.', label='Method Agreements')
+
+
+# Set labels and title for original subplot
+
+ax1.set_ylabel('Counts')
+ax1.set_xlabel('Original')
+
+ax1.set_xticks([])
+
+# Set labels and title for new subplot
+ax2.set_xlabel('New')
+
+ax2.set_ylabel('Counts')
+ax2.set_xticks([])
+
+
+# Add legends
+ax1.legend(loc='upper right')
+ax2.legend()
+
+
+
+
+# Display the plot
+plt.tight_layout()
+plt.savefig('barplots/agreements.png')
+plt.close()
 
 # Plot the number of agreements with the larger dataset containing even unsteady timeseries
 plt.figure()
