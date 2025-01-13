@@ -333,9 +333,7 @@ ax2.bar(bar_positions[1] + bar_width/4, false_negatives[1], bar_width/2, label='
 ax2.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', label='Total Agreements')
 ax2.axhline(y=n_method_agreements, color='black', linewidth=3,linestyle='-.', label='Method Agreements')
 
-
 # Set labels and title for original subplot
-
 ax1.set_ylabel('Counts')
 ax1.set_xlabel('Original')
 
@@ -347,13 +345,9 @@ ax2.set_xlabel('New')
 ax2.set_ylabel('Counts')
 ax2.set_xticks([])
 
-
 # Add legends
 ax1.legend(loc='upper right')
 ax2.legend()
-
-
-
 
 # Display the plot
 plt.tight_layout()
