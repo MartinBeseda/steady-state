@@ -76,7 +76,7 @@ for i in [2,4]:
 
 # Adjust layout
 plt.tight_layout()
-plt.show()
+# plt.show()
 plt.savefig('barplots/summary_std.png')
 
 
