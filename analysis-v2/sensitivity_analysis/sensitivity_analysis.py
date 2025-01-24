@@ -20,7 +20,7 @@ from scipy.stats import norm
 default_params_tup = (100, 500, 4.5, 80, 0.85)
 
 outliers_window_size_tup = (80, 90, 100, 110, 120)
-prob_win_size_tup = (300, 400, 500, 600, 700)
+prob_win_size_tup = (200, 350, 500, 650, 800)
 t_crit_tup = (3.5, 4.0, 4.5, 5.0, 5.5)
 step_win_size_tup = (60, 70, 80, 90, 100)
 prob_threshold_tup = (0.75, 0.8, 0.85, 0.9, 0.95)
@@ -184,7 +184,7 @@ for j, param in enumerate(all_param_vals):
         print(f'No. clustered diffs:{len(orig_diffs_clustered)}')
         print(
             f'Clustered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}')
-        with open(f'summaries/sum_{params_str}.txt', 'w') as f:
+        with open(f'summaries_new/sum_{params_str}.txt', 'w') as f:
             f.write(f'No. clustered diffs:{len(orig_diffs_clustered)}\n')
             f.write(f'Clustered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}\n')
 
@@ -226,7 +226,7 @@ for j, param in enumerate(all_param_vals):
         print(f'No. scattered diffs:{len(orig_diffs_scattered)}')
         print(
             f'Scattered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}')
-        with open(f'summaries/sum_{params_str}.txt', 'a') as f:
+        with open(f'summaries_new/sum_{params_str}.txt', 'a') as f:
             f.write(f'No. scattered diffs:{len(orig_diffs_scattered)}\n')
             f.write(f'Scattered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}\n')
 
@@ -269,7 +269,7 @@ for j, param in enumerate(all_param_vals):
         print(f'No. diffs:{len(orig_diffs_scattered + orig_diffs_clustered)}')
         print(f'All diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}')
         print(f'No. all series: {len(data_sum.keys())}')
-        with open(f'summaries/sum_{params_str}.txt', 'a') as f:
+        with open(f'summaries_new/sum_{params_str}.txt', 'a') as f:
             f.write(f'No. diffs:{len(orig_diffs_scattered + orig_diffs_clustered)}\n')
             f.write(f'All diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}\n')
             f.write(f'No. all series: {len(data_sum.keys())}')
