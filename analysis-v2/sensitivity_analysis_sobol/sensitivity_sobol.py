@@ -74,12 +74,13 @@ with open('absolute_differences.csv', 'w+') as f:
 # shifted by 0.5 and they have to be rounded before passing them as inputs to
 # the model
 problem = ProblemSpec({
-    'names': ['prob_win_size', 'step_win_size', 't_crit', 'prob_threshold', 'median_window'],
+    'names': ['prob_win_size', 'step_win_size', 't_crit', 'prob_threshold', 'median_window', 'outlier_win_size'],
     'bounds': [[400.5, 600.5],
                [50.5, 150.5],
                [2.5, 4.5],
                [0.75, 0.95],
-               [1.5, 500.5]],
+               [1.5, 500.5],
+               [80.5, 120.5]],
     'outputs': 'steadiness_idx'
 })
 
@@ -89,7 +90,9 @@ param_values.samples = np.array([(round(e[0]),
                                   round(e[1]),
                                   e[2],
                                   e[3],
-                                  round(e[4]) if round(e[4]) % 2 else round(e[4]) - 1) for e in param_values.samples])
+                                  round(e[4]) if round(e[4]) % 2 else round(e[4]) - 1,
+                                  round(e[5]))
+                                for e in param_values.samples])
 
 # Running the model for the different configurations of parameters
 outputs = np.zeros([param_values.samples.shape[0]])
@@ -97,6 +100,12 @@ for i, params in enumerate(param_values.samples):
     print(f'Processing parameters set ({params}): {i+1}/{len(param_values.samples)}...')
     for key, el in ground_truth_data.items():
         timeseries = el['series']
+
+        # timeseries1 = timeseries.copy()
+        timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=85,
+                                                           percentile_threshold_lower=2,
+                                                           window_size=int(round(params[5])))
+
         P, warmup_end = ssd.detect_steady_state(timeseries,
                                                 prob_win_size=int(round(params[0])),
                                                 step_win_size=int(round(params[1])),
