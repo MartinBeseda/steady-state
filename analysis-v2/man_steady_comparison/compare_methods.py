@@ -6,6 +6,7 @@ import json
 import shutil
 
 import numpy as np
+import scipy
 import simpleJDB
 import sys
 
@@ -110,6 +111,9 @@ data_sum = {}
 no_clusters = 0
 no_scattered = 0
 
+# Differences between absolute values of models' predictions
+pred_abs_diffs = []
+
 for i, e in enumerate(data_vittorio.data['main']):
     # Remove the bad filename suffix and load the filenames with fork indices
     fname, fork_idx = e['keyname'].rsplit('_', 1)[0].rsplit('_', 1)
@@ -129,10 +133,10 @@ for i, e in enumerate(data_vittorio.data['main']):
     #timeseries = ssi.medfilt(timeseries, kernel_size=3)
 
     # Apply the new approach
-    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=500, t_crit=3.5, step_win_size=80,
+    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=100, t_crit=4.5, step_win_size=80,
                                             medfilt_kernel_size=1)
     res = ssd.get_compact_result(P, warmup_end)
-    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=0.9, min_steady_length=0)
+    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=0.85, min_steady_length=1)
 
     # print(e['value'], data_michele.getkey(e['keyname']), data_daniele.getkey(e['keyname']),
     #       data_luca.getkey(e['keyname']), data_martin.getkey(e['keyname']), orig_clas_idx, new_clas_idx)
@@ -164,7 +168,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     if not (cluster_idxs > -1).any():
         scattered = True
         # continue
-        data_sum[series_key]['steady_idx'] = max(man_labels)
+        data_sum[series_key]['steady_idx'] = sorted(man_labels)[-3]#max(man_labels)#
         data_sum[series_key]['clustered'] = False
     elif sum(cluster_idxs > -1) == 4:
         data_sum[series_key]['steady_idx'] = man_labels[sorted(np.where(cluster_idxs > -1)[0])[-2]]
@@ -192,7 +196,6 @@ for i, e in enumerate(data_vittorio.data['main']):
     #            label='steady idx')
     # plt.savefig(f'plots/plot_{i}.png')
     # plt.close()
-
     # Compute differences of results
     if -1 not in data_sum[series_key]['idxs'][-2:]:
         if scattered:
@@ -202,6 +205,27 @@ for i, e in enumerate(data_vittorio.data['main']):
             orig_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs'][-2])
             new_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs'][-1])
 
+    pred_abs_diffs.append(abs(data_sum[series_key]['idxs'][-2]) - abs(data_sum[series_key]['idxs'][-1]))
+
+# Compute the Manhattan metric of errors for both clustered and scattered GT indices
+manhattan_new_clust = sum([abs(e) for e in new_diffs_clustered])
+manhattan_orig_clust = sum([abs(e) for e in orig_diffs_clustered])
+manhattan_new_scat = sum([abs(e) for e in new_diffs_scattered])
+manhattan_orig_scat = sum([abs(e) for e in orig_diffs_scattered])
+
+print(f'Manhattan metric:\nNew clustered: {manhattan_new_clust}, '
+      f'Orig clustered: {manhattan_orig_clust}, ')
+print(f'New scattered: {manhattan_new_scat} '
+      f'Orig scattered: {manhattan_orig_scat}')
+# print(scipy.stats.wilcoxon(new_diffs_clustered,orig_diffs_clustered))
+# print(scipy.stats.wilcoxon(orig_diffs_scattered,new_diffs_scattered))
+# print(scipy.stats.ttest_rel(new_diffs_clustered,orig_diffs_clustered))
+# print(scipy.stats.ttest_rel(orig_diffs_scattered,new_diffs_scattered))
+# print(scipy.stats.shapiro(new_diffs_clustered))
+# print(scipy.stats.shapiro(orig_diffs_clustered))
+# print(scipy.stats.shapiro(new_diffs_scattered))
+# print(scipy.stats.shapiro(orig_diffs_scattered))
+# exit(-1)
 # No. unsteady series detected
 no_unsteady_orig_scattered = 0
 no_unsteady_orig_clustered = 0
@@ -276,7 +300,7 @@ for e in larger_data['main']:
     # timeseries = ssi.medfilt(timeseries, kernel_size=3)
 
     # Apply the new approach
-    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=500, t_crit=3.5, step_win_size=80,
+    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=100, t_crit=4.5, step_win_size=80,
                                             medfilt_kernel_size=1)
     res = ssd.get_compact_result(P, warmup_end)
 
@@ -316,7 +340,7 @@ false_negatives = [false_negatives_orig, false_negatives_new]
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
 
 # First subplot for original data
-ax1.bar(bar_positions[0], no_agreements[0], bar_width, label='No Agreements (Orig)', color='lightgrey')
+ax1.bar(bar_positions[0], no_agreements[0], bar_width, label='Agreements (Orig)', color='lightgrey')
 ax1.bar(bar_positions[0] -bar_width/4, false_positives[0], bar_width/2, label='False Positives (Orig)', color='red')
 ax1.bar(bar_positions[0] + bar_width/4, false_negatives[0], bar_width/2, label='False Negatives (Orig)', color='blue')
 
@@ -325,7 +349,7 @@ ax1.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', lab
 ax1.axhline(y=n_method_agreements, color='black', linewidth=3, linestyle='-.', label='Method Agreements')
 
 # Second subplot for new data
-ax2.bar(bar_positions[1], no_agreements[1], bar_width, label='No Agreements (New)', color='lightgrey')
+ax2.bar(bar_positions[1], no_agreements[1], bar_width, label='Agreements (New)', color='lightgrey')
 ax2.bar(bar_positions[1] - bar_width/4, false_positives[1], bar_width/2, label='False Positives (New)', color='red')
 ax2.bar(bar_positions[1] + bar_width/4, false_negatives[1], bar_width/2, label='False Negatives (New)', color='blue')
 
@@ -493,6 +517,106 @@ plt.boxplot([orig_diffs_clustered + orig_diffs_scattered, new_diffs_clustered + 
             tick_labels=['orig', 'new'])
 plt.savefig('boxplots/differences_all.png')
 plt.close()
+
+# Plot the Manhattan distances of differences from GT
+
+# Create the figure and axes
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
+
+# First subplot for original data
+ax1.bar(bar_positions[0], manhattan_orig_scat + manhattan_orig_clust, bar_width, label='Total distance',
+        color='lightgrey')
+ax1.bar(bar_positions[0] -bar_width/4, manhattan_orig_clust, bar_width/2, label='Distance w.r.t. clustered idxs',
+        color='red')
+ax1.bar(bar_positions[0] + bar_width/4, manhattan_orig_scat, bar_width/2, label='Distance w.r.t. scattered idxs',
+        color='blue')
+
+# Second subplot for new data
+ax2.bar(bar_positions[1], manhattan_new_scat + manhattan_new_clust, bar_width, label='Total distance',
+        color='lightgrey')
+ax2.bar(bar_positions[1] - bar_width/4, manhattan_new_clust, bar_width/2, label='Distance w.r.t. clustered idxs',
+        color='red')
+ax2.bar(bar_positions[1] + bar_width/4, manhattan_new_scat, bar_width/2, label='Distance w.r.t. scattered idxs',
+        color='blue')
+
+# Set labels and title for original subplot
+ax1.set_ylabel('Manhattan distance w.r.t. GT')
+ax1.set_xlabel('Original')
+
+ax1.set_xticks([])
+
+# Set labels and title for new subplot
+ax2.set_xlabel('New')
+
+# ax2.set_ylabel('Counts')
+ax2.set_xticks([])
+
+# Add legends
+# ax1.legend(loc='upper right')
+ax2.legend()
+
+plt.ylim(0, 165000)
+
+# Display the plot
+plt.tight_layout()
+plt.savefig(f'barplots/manhattan.png')
+plt.close()
+
+# Check, if differences among models' predictions are normally distributed and plot them
+plt.figure()
+plt.title('Differences of absolute values of models\' prediction distances from GT (orig-new)')
+plt.hist(pred_abs_diffs, bins=30)
+plt.savefig(f'histograms/pred_abs_diffs.png')
+plt.close()
+
+plt.figure()
+plt.title('Diffs of all orig - new differences w.r.t. GT')
+plt.hist(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
+plt.savefig('histograms/diffs_of_diffs_all.png')
+plt.close()
+statistic, pval = scipy.stats.shapiro(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
+print(f'Shapiro-Wilk over differences of ALL orig - new diffs from GT: statistic: {statistic}, p-value: {pval}')
+
+plt.figure()
+plt.title('Diffs of clustered orig - new differences w.r.t. GT')
+plt.hist(np.array(orig_diffs_clustered) - np.array(new_diffs_clustered))
+plt.savefig('histograms/diffs_of_diffs_clust.png')
+plt.close()
+statistic, pval = scipy.stats.shapiro(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
+print(f'Shapiro-Wilk over differences of CLUST orig - new diffs from GT: statistic: {statistic}, p-value: {pval}')
+
+plt.figure()
+plt.title('Diffs of scattered orig - new differences w.r.t. GT')
+plt.hist(np.array(orig_diffs_clustered) - np.array(new_diffs_clustered))
+plt.savefig('histograms/diffs_of_diffs_scat.png')
+plt.close()
+statistic, pval = scipy.stats.shapiro(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
+print(f'Shapiro-Wilk over differences of SCAT orig - new diffs from GT: statistic: {statistic}, p-value: {pval}')
+
+statistic, pval = scipy.stats.wilcoxon(orig_diffs_scattered + orig_diffs_clustered,
+                                       new_diffs_scattered + new_diffs_clustered)
+print(f'Wilcoxon two-tail signed-rank test comparing ALL orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.wilcoxon(orig_diffs_scattered,
+                                       new_diffs_scattered)
+print(f'Wilcoxon two-tail signed-rank test comparing SCAT orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.wilcoxon(orig_diffs_clustered,
+                                       new_diffs_clustered)
+print(f'Wilcoxon two-tail signed-rank test comparing CLUST orig/new diffs from GT: statistic: {statistic}, '
+      f'pval: {pval}')
+
+statistic, pval = scipy.stats.kstest(orig_diffs_scattered + orig_diffs_clustered,
+                                     new_diffs_scattered + new_diffs_clustered)
+print(f'KS test comparing ALL orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.kstest(orig_diffs_scattered,
+                                     new_diffs_scattered)
+print(f'KS test comparing SCAT orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.kstest(orig_diffs_clustered,
+                                     new_diffs_clustered)
+print(f'KS test comparing CLUST orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
 
 # Save the data structure
 json.dump(data_sum, open('full_classification.json', 'w'), cls=plotly.utils.PlotlyJSONEncoder)

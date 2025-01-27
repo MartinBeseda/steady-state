@@ -4,6 +4,8 @@
 
 import json
 import sys
+
+import scipy.stats
 from SALib import ProblemSpec
 from SALib.analyze import sobol
 from SALib.analyze.sobol import analyze
@@ -52,6 +54,25 @@ import steady_state_detection as ssd
 
 # Load the data
 ground_truth_data = json.load(open('full_classification.json'))
+
+print(ground_truth_data)
+
+# Export the deviations w.r.t. the GT into CSV
+new_diffs = []
+orig_diffs = []
+with open('absolute_differences.csv', 'w+') as f:
+    for k, e in ground_truth_data.items():
+        if e['idxs'][-1] > 0 and e['idxs'][-2] > 0:
+            print(k, np.abs(e['steady_idx'] - e['idxs'][-1]), np.abs(e['steady_idx'] - e['idxs'][-2]))
+            new_diffs.append(np.abs(e['steady_idx'] - e['idxs'][-1]))
+            orig_diffs.append(np.abs(e['steady_idx'] - e['idxs'][-2]))
+            # f.write(f'{k} {np.abs(e['steady_idx'] - e['idxs'][-1])} {np.abs(e['steady_idx'] - e['idxs'][-2])}\n')
+
+print(sum(new_diffs), sum(orig_diffs))
+print(scipy.stats.wilcoxon(new_diffs, y=orig_diffs))
+
+
+exit(-1)
 
 # Defining to-be-analyzed parameters and their properties
 #
