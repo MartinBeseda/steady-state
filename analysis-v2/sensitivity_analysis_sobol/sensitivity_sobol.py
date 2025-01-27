@@ -68,29 +68,28 @@ with open('absolute_differences.csv', 'w+') as f:
             orig_diffs.append(np.abs(e['steady_idx'] - e['idxs'][-2]))
             # f.write(f'{k} {np.abs(e['steady_idx'] - e['idxs'][-1])} {np.abs(e['steady_idx'] - e['idxs'][-2])}\n')
 
-print(sum(new_diffs), sum(orig_diffs))
-print(scipy.stats.wilcoxon(new_diffs, y=orig_diffs))
-
-
-exit(-1)
-
 # Defining to-be-analyzed parameters and their properties
 #
 # prob_win_size and step_win_size are integer variables, thus the intervals are
 # shifted by 0.5 and they have to be rounded before passing them as inputs to
 # the model
 problem = ProblemSpec({
-    'names': ['prob_win_size', 'step_win_size', 't_crit', 'prob_threshold'],
+    'names': ['prob_win_size', 'step_win_size', 't_crit', 'prob_threshold', 'median_window'],
     'bounds': [[400.5, 600.5],
                [50.5, 150.5],
                [2.5, 4.5],
-               [0.75, 0.95]],
+               [0.75, 0.95],
+               [1.5, 500.5]],
     'outputs': 'steadiness_idx'
 })
 
 # Generating parameter configurations via Sobol sampling
 param_values = problem.sample_sobol(2**9)
-param_values.samples = np.array([(round(e[0]), round(e[1]), e[2], e[3]) for e in param_values.samples])
+param_values.samples = np.array([(round(e[0]),
+                                  round(e[1]),
+                                  e[2],
+                                  e[3],
+                                  round(e[4]) if round(e[4]) % 2 else round(e[4]) - 1) for e in param_values.samples])
 
 # Running the model for the different configurations of parameters
 outputs = np.zeros([param_values.samples.shape[0]])
@@ -99,16 +98,17 @@ for i, params in enumerate(param_values.samples):
     for key, el in ground_truth_data.items():
         timeseries = el['series']
         P, warmup_end = ssd.detect_steady_state(timeseries,
-                                                prob_win_size=int(params[0]),
-                                                step_win_size=int(params[1]),
+                                                prob_win_size=int(round(params[0])),
+                                                step_win_size=int(round(params[1])),
                                                 t_crit=params[2],
-                                                medfilt_kernel_size=1)
+                                                medfilt_kernel_size=int(round(params[4])))
         res = ssd.get_compact_result(P, warmup_end)
         new_ssd_idx = ssd.get_ssd_idx(res, prob_threshold=params[3], min_steady_length=0)
         outputs[i] += (el['steady_idx'] - new_ssd_idx)**2
 
 # Perform analysis
 analysis_res = analyze(problem, outputs)
+print(analysis_res)
 
 # Print the plots
 plt.figure()
@@ -118,3 +118,6 @@ plt.suptitle('Sobols\' indices')
 plt.tight_layout()
 plt.savefig('barplots/sobol_idxs.png')
 plt.close()
+
+with open('sobol_analysis.txt', 'w+') as f:
+    f.write(analysis_res)
