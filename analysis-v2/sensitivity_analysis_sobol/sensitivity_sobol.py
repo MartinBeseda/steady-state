@@ -51,11 +51,16 @@ import steady_state_detection as ssd
 # analysis_res.plot()
 # plt.show()
 
+# outliers_window_size = 100
+# prob_win_size = 500
+# t_crit = 4
+# step_win_size = 70
+# prob_threshold = 0.95
+# median_kernel_size = 1
+
 
 # Load the data
 ground_truth_data = json.load(open('full_classification.json'))
-
-print(ground_truth_data)
 
 # Export the deviations w.r.t. the GT into CSV
 new_diffs = []
@@ -74,12 +79,11 @@ with open('absolute_differences.csv', 'w+') as f:
 # shifted by 0.5 and they have to be rounded before passing them as inputs to
 # the model
 problem = ProblemSpec({
-    'names': ['prob_win_size', 'step_win_size', 't_crit', 'prob_threshold', 'median_window', 'outlier_win_size'],
+    'names': ['prob_win_size', 'step_win_size', 't_crit', 'prob_threshold', 'outlier_win_size'],
     'bounds': [[400.5, 600.5],
-               [50.5, 150.5],
-               [2.5, 4.5],
+               [50.5, 90.5],
+               [3.5, 5.5],
                [0.75, 0.95],
-               [1.5, 501.5],
                [80.5, 120.5]],
     'outputs': 'steadiness_idx'
 })
