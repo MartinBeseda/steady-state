@@ -39,58 +39,6 @@ from scipy.optimize import differential_evolution
 #     fork_idx = int(fork_idx)
 #     shutil.copyfile(f'../../data/classification/{fname}', f'orig_classification/{fname}')
 
-
-# Define the cost function for the parameter optimization
-# We use not only the sum of square errors for the deviations from the ground truth, but also disagreements with the
-# larger dataset considering only detected (un)steadiness
-def cost_func(prob_win_size, t_crit, step_win_size, prob_threshold, min_steady_length, larger_data, steady_data_sum):
-    cost = 0
-
-    # Penalize incorrect (un)steadiness detections
-    no_elements = len(larger_data['main'])
-    no_agreements_new = 0
-    n_std = 0
-    n_std_new = 0
-    for e in larger_data['main']:
-        fork_name, fork_idx = e['keyname'].rsplit('_', 1)
-        fork_idx = int(fork_idx)
-
-        is_steady = True if e['value'] > -1 else False
-        print(e['value'])
-        if is_steady:
-            n_std += 1
-
-        # Detect steadiness via the new approach
-        # Load the corresponding timeseries
-        timeseries = json.load(open(f'data_st/{fork_name}'))[fork_idx]
-        timeseries1 = timeseries.copy()
-        timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=98,
-                                                           percentile_threshold_lower=2,
-                                                           window_size=100)
-        timeseries2 = timeseries.copy()
-        # timeseries = ssi.medfilt(timeseries, kernel_size=3)
-
-        # Apply the new approach
-        P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=prob_win_size, t_crit=t_crit,
-                                                step_win_size=step_win_size, medfilt_kernel_size=1)
-        res = ssd.get_compact_result(P, warmup_end)
-
-        new_clas_idx = True if ssd.get_ssd_idx(res, prob_threshold=prob_threshold,
-                                               min_steady_length=min_steady_length) > -1 else False
-        if new_clas_idx:
-            n_std_new += 1
-        if is_steady == new_clas_idx:
-            no_agreements_new += 1
-
-        # Evaluate deviations from the steady ground truth dataset
-        if f'{fork_name}_{fork_idx}' in steady_data_sum:
-            cost += (steady_data_sum[f'{fork_name}_{fork_idx}']['steady_idx'] - new_clas_idx)**2
-
-    cost += (no_elements - no_agreements_new)**8
-
-    return cost
-
-
 # Load the data together with manual labeling and the original auto-classification
 data_vittorio = simpleJDB.database('benchmark_database_steady_indices_vittorio')
 data_michele = simpleJDB.database('benchmark_database_steady_indices_michele')
@@ -114,6 +62,16 @@ no_scattered = 0
 # Differences between absolute values of models' predictions
 pred_abs_diffs = []
 
+# Parameters =
+outliers_window_size = 100
+prob_win_size = 500
+t_crit = 4
+step_win_size = 70
+prob_threshold = 0.95
+median_kernel_size = 1
+
+print(f'Number of steady timeseries: {len(list(data_vittorio.data['main']))}')
+
 for i, e in enumerate(data_vittorio.data['main']):
     # Remove the bad filename suffix and load the filenames with fork indices
     fname, fork_idx = e['keyname'].rsplit('_', 1)[0].rsplit('_', 1)
@@ -126,17 +84,18 @@ for i, e in enumerate(data_vittorio.data['main']):
     # Load the corresponding timeseries
     timeseries = json.load(open(f'../sensitivity_analysis/data_st/{fname}_{fork_idx}'))
     timeseries1 = timeseries.copy()
-    timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=98,
+    timeseries, _ = ssd.substitute_outliers_percentile(timeseries,
+                                                       percentile_threshold_upper=98,
                                                        percentile_threshold_lower=2,
-                                                       window_size=100)
+                                                       window_size=outliers_window_size)
     timeseries2 = timeseries.copy()
     #timeseries = ssi.medfilt(timeseries, kernel_size=3)
 
     # Apply the new approach
-    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=100, t_crit=4.5, step_win_size=80,
-                                            medfilt_kernel_size=1)
+    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=prob_win_size, t_crit=t_crit,
+                                            step_win_size=step_win_size, medfilt_kernel_size=median_kernel_size)
     res = ssd.get_compact_result(P, warmup_end)
-    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=0.85, min_steady_length=1)
+    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=prob_threshold, min_steady_length=1)
 
     # print(e['value'], data_michele.getkey(e['keyname']), data_daniele.getkey(e['keyname']),
     #       data_luca.getkey(e['keyname']), data_martin.getkey(e['keyname']), orig_clas_idx, new_clas_idx)
@@ -226,6 +185,7 @@ print(f'New scattered: {manhattan_new_scat} '
 # print(scipy.stats.shapiro(new_diffs_scattered))
 # print(scipy.stats.shapiro(orig_diffs_scattered))
 # exit(-1)
+
 # No. unsteady series detected
 no_unsteady_orig_scattered = 0
 no_unsteady_orig_clustered = 0
@@ -255,9 +215,14 @@ plt.bar([1, 2, 3, 4],
 plt.savefig('barplots/no_unsteady.png')
 plt.close()
 
+print(f'Number of false negatives: {no_unsteady_orig_scattered, no_unsteady_orig_clustered, no_unsteady_new_scattered,
+no_unsteady_new_clustered}')
+
 
 # Plot the number of steadiness detections on larger dataset
 larger_data = json.load(open('benchmark_database_binary.json'))
+print(f'Total number (including unsteady) of timeseries: {len(larger_data['main'])}')
+
 no_agreements_orig = 0
 false_positives_orig = 0
 false_negatives_orig = 0
@@ -274,20 +239,29 @@ for e in larger_data['main']:
     fork_idx = int(fork_idx)
 
     is_steady = True if e['value'] > -1 else False
-    print(e['value'])
     if is_steady:
         n_std += 1
+    else:
+        a=1
     # Obtain the original classification
     orig_classification = True \
         if json.load(open(f'orig_classification/{fork_name}'))['steady_state_starts'][fork_idx] > -1 else False
+
+    dbg1 = False
+    dbg2 = False
     if orig_classification:
         n_std_orig += 1
+        dbg1=True
     if is_steady == orig_classification:
         no_agreements_orig += 1
     elif not is_steady and orig_classification:
         false_positives_orig += 1
+        dbg2=True
     else:
         false_negatives_orig += 1
+
+    if not dbg1 and dbg2:
+        a=1
 
     # Detect steadiness via the new approach
     # Load the corresponding timeseries
@@ -295,16 +269,19 @@ for e in larger_data['main']:
     timeseries1 = timeseries.copy()
     timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=98,
                                                        percentile_threshold_lower=2,
-                                                       window_size=100)
+                                                       window_size=outliers_window_size)
     timeseries2 = timeseries.copy()
     # timeseries = ssi.medfilt(timeseries, kernel_size=3)
 
     # Apply the new approach
-    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=100, t_crit=4.5, step_win_size=80,
-                                            medfilt_kernel_size=1)
+    #'100_500_4.0_70_0.95_1', 128076)
+    #(outliers_window_size_tup, prob_win_size_tup, t_crit_tup, step_win_size_tup, prob_threshold_tup,
+    #            median_kernel_size)
+    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=prob_win_size, t_crit=t_crit,
+                                            step_win_size=step_win_size, medfilt_kernel_size=median_kernel_size)
     res = ssd.get_compact_result(P, warmup_end)
 
-    new_clas_idx = True if ssd.get_ssd_idx(res, prob_threshold=0.9, min_steady_length=0) > -1 else False
+    new_clas_idx = True if ssd.get_ssd_idx(res, prob_threshold=prob_threshold, min_steady_length=0) > -1 else False
     if new_clas_idx:
         n_std_new += 1
     if is_steady == new_clas_idx:
@@ -315,11 +292,11 @@ for e in larger_data['main']:
         false_negatives_new += 1
 
     # Both methods and the ground truth agree with each other
-    if is_steady and new_clas_idx and orig_classification:
+    if is_steady == new_clas_idx == orig_classification:
         n_total_agreements += 1
 
     # Both methods agree with each other, but not with the ground truth
-    if not is_steady and new_clas_idx and orig_classification:
+    if (is_steady != new_clas_idx) and (new_clas_idx == orig_classification):
         n_method_agreements += 1
 
 print(n_std, n_std_orig, n_std_new)
@@ -349,9 +326,9 @@ ax1.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', lab
 ax1.axhline(y=n_method_agreements, color='black', linewidth=3, linestyle='-.', label='Method Agreements')
 
 # Second subplot for new data
-ax2.bar(bar_positions[1], no_agreements[1], bar_width, label='Agreements (New)', color='lightgrey')
-ax2.bar(bar_positions[1] - bar_width/4, false_positives[1], bar_width/2, label='False Positives (New)', color='red')
-ax2.bar(bar_positions[1] + bar_width/4, false_negatives[1], bar_width/2, label='False Negatives (New)', color='blue')
+ax2.bar(bar_positions[1], no_agreements[1], bar_width, label='Agreements with GT', color='lightgrey')
+ax2.bar(bar_positions[1] - bar_width/4, false_positives[1], bar_width/2, label='False Positives', color='red')
+ax2.bar(bar_positions[1] + bar_width/4, false_negatives[1], bar_width/2, label='False Negatives', color='blue')
 
 # Add horizontal lines to the second subplot (New)
 ax2.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', label='Total Agreements')
@@ -369,14 +346,21 @@ ax2.set_xlabel('New')
 ax2.set_ylabel('Counts')
 ax2.set_xticks([])
 
+ax1.set(ylim=(0, 420))
+ax2.set(ylim=(0, 420))
+
 # Add legends
-ax1.legend(loc='upper right')
-ax2.legend()
+ax2.legend(loc='upper right')
+# ax2.legend()
 
 # Display the plot
 plt.tight_layout()
 plt.savefig('barplots/agreements.png')
 plt.close()
+
+print(f'Number of agreements with GT: total number of samples: {no_agreements_orig + false_negatives_orig
+                                                                + false_positives_orig} '
+      f'& {no_agreements_new + false_negatives_new + false_positives_new}')
 
 # Plot the number of agreements with the larger dataset containing even unsteady timeseries
 plt.figure()
@@ -459,6 +443,73 @@ plt.close()
 print(f'No. scattered diffs:{len(orig_diffs_scattered)}')
 print(f'Scattered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}')
 
+# Plot histogram of SSD absolute errors for all points
+mean_orig, std_orig = norm.fit(np.array(orig_diffs_scattered + orig_diffs_clustered))
+mean_new, std_new = norm.fit(np.array(new_diffs_scattered + new_diffs_clustered))
+
+# plt.figure(figsize=(10, 6))
+fig, ax1 = plt.subplots(figsize=(10,6))
+plt.title('SSD Reference idx - detected idx (all labels)')
+#plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
+#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='red')
+ax1.hist([np.array(orig_diffs_scattered + orig_diffs_clustered), np.array(new_diffs_scattered + new_diffs_clustered)],
+         bins=30, alpha=0.5, label=['original', 'new'], color=['blue', 'red'])
+
+xmin, xmax = plt.xlim()
+x = np.linspace(xmin, xmax, 100)
+
+# ---- Fit and plot Gaussian for new data ----
+p_new = norm.pdf(x, mean_new, std_new)
+ax2.plot(x, p_new, 'r-', linewidth=2, label=f'New Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
+p_orig = norm.pdf(x, mean_orig, std_orig)
+ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'Original Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
+
+ax1.set_xlim(xmin=0)
+
+# Place the legend outside the plot
+plt.legend(loc='upper left')  # Adjust position of the legend
+
+plt.savefig('histograms/differences_all_30_bins.png')
+plt.close()
+print(f'No. abs errs:{len(orig_diffs_scattered + orig_diffs_clustered)}')
+print(f'All errs: New std: {std_new}, New mean: {mean_new} New median: {np.median(new_diffs_scattered +
+                                                                                  new_diffs_clustered)}, '
+      f'Orig std: {std_orig}, Orig mean: {mean_orig}, Orig median: {np.median(orig_diffs_scattered +
+                                                                              orig_diffs_clustered)}')
+
+# Plot histogram of SSD absolute errors for all points
+mean_orig, std_orig = norm.fit(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)))
+mean_new, std_new = norm.fit(abs(np.array(new_diffs_scattered + new_diffs_clustered)))
+
+# plt.figure(figsize=(10, 6))
+fig, ax1 = plt.subplots(figsize=(10,6))
+plt.title('SSD Reference idx - detected idx (all labels)')
+#plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
+#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='red')
+ax1.hist([abs(np.array(orig_diffs_scattered + orig_diffs_clustered)), abs(np.array(new_diffs_scattered + new_diffs_clustered))],
+         bins=30, alpha=0.5, label=['original', 'new'], color=['blue', 'red'])
+
+xmin, xmax = plt.xlim()
+x = np.linspace(xmin, xmax, 100)
+
+# ---- Fit and plot Gaussian for new data ----
+p_new = norm.pdf(x, mean_new, std_new)
+ax2.plot(x, p_new, 'r-', linewidth=2, label=f'New Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
+p_orig = norm.pdf(x, mean_orig, std_orig)
+ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'Original Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
+
+ax1.set_xlim(xmin=0)
+
+# Place the legend outside the plot
+plt.legend(loc='upper left')  # Adjust position of the legend
+
+plt.savefig('histograms/abs_errs_all_30_bins.png')
+plt.close()
+print(f'No. abs errs:{len(orig_diffs_scattered + orig_diffs_clustered)}')
+print(f'All abs errs: New std: {std_new}, New mean: {mean_new}, '
+      f'New median: {np.median(abs(np.array(new_diffs_scattered + new_diffs_scattered)))}, Orig std: {std_orig}, '
+      f'Orig mean: {mean_orig}, Orig median: {np.median(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)))}')
+
 # Plot histogram of SSD differences for all points
 mean_orig, std_orig = norm.fit(orig_diffs_scattered + orig_diffs_clustered)
 mean_new, std_new = norm.fit(new_diffs_scattered + new_diffs_clustered)
@@ -494,9 +545,6 @@ plt.legend(loc='upper left')  # Adjust position of the legend
 
 plt.savefig('histograms/differences_all_30_bins.png')
 plt.close()
-print(f'No. diffs:{len(orig_diffs_scattered + orig_diffs_clustered)}')
-print(f'All diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}')
-print(f'No. all series: {len(data_sum.keys())}')
 
 # Create boxplots of differences
 plt.figure()
@@ -574,49 +622,179 @@ plt.title('Diffs of all orig - new differences w.r.t. GT')
 plt.hist(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
 plt.savefig('histograms/diffs_of_diffs_all.png')
 plt.close()
+
+print(f'Mean and median of differences of ALL orig - new diffs from GT: '
+      f'{np.mean(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))}, '
+      f'{np.median(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))}')
+
+print(f'Mean and median of differences of ALL abs(orig) - abs(new) diffs from GT: '
+      f'{np.mean(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)) - abs(np.array(new_diffs_scattered + new_diffs_clustered)))}, '
+      f'{np.median(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)) - abs(np.array(new_diffs_scattered + new_diffs_clustered)))}')
+
+print(f'Skewness of differences of ALL orig - new diffs from GT: {scipy.stats.skew(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))}')
+print(f'Skewness of differences of ALL abs(orig) - abs(new) diffs from GT: {scipy.stats.skew(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)) - abs(np.array(new_diffs_scattered + new_diffs_clustered)))}')
+
+from scipy.stats import binomtest
+
+# Differences between paired observations
+differences = np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered)
+
+# Count positive and negative differences
+pos_differences = np.sum(differences > 0)
+neg_differences = np.sum(differences < 0)
+
+# Perform a binomial test
+n = pos_differences + neg_differences
+res = binomtest(pos_differences, n=n, p=0.5, alternative='two-sided')
+statistic = res.statistic
+pval = res.pvalue
+print(f"Sign test for differences of ALL orig - new diffs from GT: {statistic, pval}")
+
+# Differences between paired observations
+differences = abs(np.array(orig_diffs_scattered + orig_diffs_clustered)) - abs(np.array(new_diffs_scattered + new_diffs_clustered))
+
+# Count positive and negative differences
+pos_differences = np.sum(differences > 0)
+neg_differences = np.sum(differences < 0)
+
+# Perform a binomial test
+n = pos_differences + neg_differences
+res = binomtest(pos_differences, n=n, p=0.5, alternative='two-sided')
+statistic = res.statistic
+pval = res.pvalue
+print(f"Sign test for differences of ALL abs(orig) - abs(new) diffs from GT: {statistic, pval}")
+
+
 statistic, pval = scipy.stats.shapiro(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
 print(f'Shapiro-Wilk over differences of ALL orig - new diffs from GT: statistic: {statistic}, p-value: {pval}')
 
-plt.figure()
-plt.title('Diffs of clustered orig - new differences w.r.t. GT')
-plt.hist(np.array(orig_diffs_clustered) - np.array(new_diffs_clustered))
-plt.savefig('histograms/diffs_of_diffs_clust.png')
-plt.close()
-statistic, pval = scipy.stats.shapiro(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
-print(f'Shapiro-Wilk over differences of CLUST orig - new diffs from GT: statistic: {statistic}, p-value: {pval}')
+statistic, pval = scipy.stats.shapiro(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)) - abs(np.array(new_diffs_scattered + new_diffs_clustered)))
+print(f'Shapiro-Wilk over differences of ALL abs(orig) - abs(new) diffs from GT: statistic: {statistic}, p-value: {pval}')
 
-plt.figure()
-plt.title('Diffs of scattered orig - new differences w.r.t. GT')
-plt.hist(np.array(orig_diffs_clustered) - np.array(new_diffs_clustered))
-plt.savefig('histograms/diffs_of_diffs_scat.png')
-plt.close()
-statistic, pval = scipy.stats.shapiro(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
-print(f'Shapiro-Wilk over differences of SCAT orig - new diffs from GT: statistic: {statistic}, p-value: {pval}')
+# plt.figure()
+# plt.title('Diffs of clustered orig - new differences w.r.t. GT')
+# plt.hist(np.array(orig_diffs_clustered) - np.array(new_diffs_clustered))
+# plt.savefig('histograms/diffs_of_diffs_clust.png')
+# plt.close()
+# statistic, pval = scipy.stats.shapiro(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
+# print(f'Shapiro-Wilk over differences of CLUST orig - new diffs from GT: statistic: {statistic}, p-value: {pval}')
+#
+# plt.figure()
+# plt.title('Diffs of scattered orig - new differences w.r.t. GT')
+# plt.hist(np.array(orig_diffs_clustered) - np.array(new_diffs_clustered))
+# plt.savefig('histograms/diffs_of_diffs_scat.png')
+# plt.close()
+# statistic, pval = scipy.stats.shapiro(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
+# print(f'Shapiro-Wilk over differences of SCAT orig - new diffs from GT: statistic: {statistic}, p-value: {pval}')
 
-statistic, pval = scipy.stats.wilcoxon(orig_diffs_scattered + orig_diffs_clustered,
+# statistic, pval = scipy.stats.wilcoxon(orig_diffs_scattered + orig_diffs_clustered,
+#                                        new_diffs_scattered + new_diffs_clustered)
+# print(f'Wilcoxon two-tail signed-rank test comparing ALL orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+#
+# statistic, pval = scipy.stats.wilcoxon(orig_diffs_scattered,
+#                                        new_diffs_scattered)
+# print(f'Wilcoxon two-tail signed-rank test comparing SCAT orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+#
+# statistic, pval = scipy.stats.wilcoxon(orig_diffs_clustered,
+#                                        new_diffs_clustered)
+# print(f'Wilcoxon two-tail signed-rank test comparing CLUST orig/new diffs from GT: statistic: {statistic}, '
+#       f'pval: {pval}')
+#
+# statistic, pval = scipy.stats.wilcoxon(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)),
+#                                        abs(np.array(new_diffs_scattered + new_diffs_clustered)))
+# print(f'Wilcoxon two-tail signed-rank test comparing ALL orig/new ABS ERRS from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.ks_2samp(orig_diffs_scattered + orig_diffs_clustered,
                                        new_diffs_scattered + new_diffs_clustered)
-print(f'Wilcoxon two-tail signed-rank test comparing ALL orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
-
-statistic, pval = scipy.stats.wilcoxon(orig_diffs_scattered,
-                                       new_diffs_scattered)
-print(f'Wilcoxon two-tail signed-rank test comparing SCAT orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
-
-statistic, pval = scipy.stats.wilcoxon(orig_diffs_clustered,
-                                       new_diffs_clustered)
-print(f'Wilcoxon two-tail signed-rank test comparing CLUST orig/new diffs from GT: statistic: {statistic}, '
-      f'pval: {pval}')
-
-statistic, pval = scipy.stats.kstest(orig_diffs_scattered + orig_diffs_clustered,
-                                     new_diffs_scattered + new_diffs_clustered)
 print(f'KS test comparing ALL orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
 
-statistic, pval = scipy.stats.kstest(orig_diffs_scattered,
-                                     new_diffs_scattered)
+statistic, pval = scipy.stats.ks_2samp(orig_diffs_scattered, new_diffs_scattered)
 print(f'KS test comparing SCAT orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
 
-statistic, pval = scipy.stats.kstest(orig_diffs_clustered,
-                                     new_diffs_clustered)
+statistic, pval = scipy.stats.ks_2samp(orig_diffs_clustered, new_diffs_clustered)
 print(f'KS test comparing CLUST orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.ks_2samp(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)),
+                                       abs(np.array(new_diffs_scattered + new_diffs_clustered)))
+print(f'KS test comparing ALL orig/new ABS ERRS from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.levene(orig_diffs_scattered + orig_diffs_clustered,
+                                     new_diffs_scattered + new_diffs_clustered)
+print(f'Levene test comparing ALL orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.levene(orig_diffs_scattered, new_diffs_scattered)
+print(f'Levene test comparing SCAT orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.levene(orig_diffs_clustered, new_diffs_clustered)
+print(f'Levene test comparing CLUST orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+statistic, pval = scipy.stats.levene(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)),
+                                     abs(np.array(new_diffs_scattered + new_diffs_clustered)))
+print(f'Levene test comparing ALL orig/new ABS ERRS from GT: statistic: {statistic}, pval: {pval}')
+
+res = scipy.stats.cramervonmises_2samp(orig_diffs_scattered + orig_diffs_clustered,
+                                       new_diffs_scattered + new_diffs_clustered)
+statistic = res.statistic
+pval = res.pvalue
+print(f'Cramer-von Mises test comparing ALL orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+res = scipy.stats.cramervonmises_2samp(orig_diffs_scattered, new_diffs_scattered)
+statistic = res.statistic
+pval = res.pvalue
+print(f'Cramer-von Mises test comparing SCAT orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+res = scipy.stats.cramervonmises_2samp(orig_diffs_clustered, new_diffs_clustered)
+statistic = res.statistic
+pval = res.pvalue
+print(f'Cramer-von Mises test comparing CLUST orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+res= scipy.stats.cramervonmises_2samp(abs(np.array(orig_diffs_scattered + orig_diffs_clustered)),
+                                      abs(np.array(new_diffs_scattered + new_diffs_clustered)))
+statistic = res.statistic
+pval = res.pvalue
+print(f'Cramer-von Mises two-tail signed-rank test comparing ALL orig/new ABS ERRS from GT: statistic: {statistic}, '
+      f'pval: {pval}')
+
+res = scipy.stats.anderson_ksamp([orig_diffs_scattered + orig_diffs_clustered,
+                                  new_diffs_scattered + new_diffs_clustered])
+statistic = res.statistic
+pval = res.pvalue
+print(f'Anderson-Darling test comparing ALL orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+res = scipy.stats.anderson_ksamp([orig_diffs_scattered, new_diffs_scattered])
+statistic = res.statistic
+pval = res.pvalue
+print(f'Anderson-Darling test comparing SCAT orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+res = scipy.stats.anderson_ksamp([orig_diffs_clustered, new_diffs_clustered])
+statistic = res.statistic
+pval = res.pvalue
+print(f'Anderson-Darling test comparing CLUST orig/new diffs from GT: statistic: {statistic}, pval: {pval}')
+
+res = scipy.stats.anderson_ksamp([abs(np.array(orig_diffs_scattered + orig_diffs_clustered)),
+                                  abs(np.array(new_diffs_scattered + new_diffs_clustered))])
+statistic = res.statistic
+pval = res.pvalue
+print(f'Anderson-Darling test comparing ALL orig/new ABS ERRS from GT: statistic: {statistic}, pval: {pval}')
+
+pvals_adjusted_all = scipy.stats.false_discovery_control([0.003498590902895466, 0.01851105994215968, 0.012905978306124622, 0.03670550960639096, 0.011283427463200917])
+print(f'Adjusted p-values for ALL indices: {pvals_adjusted_all}')
+
+pvals_adjusted_all = scipy.stats.false_discovery_control([6.704061638247396e-06, 0.21479443462137032, 0.12505597757035683, 0.15724747079744394, 0.1494288234321643])
+print(f'Adjusted p-values for ALL indices of ABS ERRS: {pvals_adjusted_all}')
+
+# res = scipy.special.kl_div(orig_diffs_scattered + orig_diffs_clustered,
+#                                        new_diffs_scattered + new_diffs_clustered)
+# print(f'KL div comparing ALL orig/new diffs from GT: {res}')
+#
+# res = scipy.special.kl_div(orig_diffs_scattered,
+#                                        new_diffs_scattered)
+# print(f'KL div comparing SCAT orig/new diffs from GT: {res}')
+#
+# res = scipy.special.kl_div(orig_diffs_clustered,
+#                                        new_diffs_clustered)
+# print(f'KL div comparing CLUST orig/new diffs from GT: {res}')
+
 
 # Save the data structure
 json.dump(data_sum, open('full_classification.json', 'w'), cls=plotly.utils.PlotlyJSONEncoder)
