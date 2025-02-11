@@ -94,8 +94,7 @@ param_values.samples = np.array([(round(e[0]),
                                   round(e[1]),
                                   e[2],
                                   e[3],
-                                  round(e[4]) if round(e[4]) % 2 else round(e[4]) - 1,
-                                  round(e[5]))
+                                  round(e[4]) if round(e[4]) % 2 else round(e[4]) - 1)
                                 for e in param_values.samples])
 
 # Running the model for the different configurations of parameters
@@ -108,13 +107,13 @@ for i, params in enumerate(param_values.samples):
         # timeseries1 = timeseries.copy()
         timeseries, _ = ssd.substitute_outliers_percentile(timeseries, percentile_threshold_upper=85,
                                                            percentile_threshold_lower=2,
-                                                           window_size=int(round(params[5])))
+                                                           window_size=int(round(params[4])))
 
         P, warmup_end = ssd.detect_steady_state(timeseries,
                                                 prob_win_size=int(round(params[0])),
                                                 step_win_size=int(round(params[1])),
                                                 t_crit=params[2],
-                                                medfilt_kernel_size=int(round(params[4])))
+                                                medfilt_kernel_size=1)
         res = ssd.get_compact_result(P, warmup_end)
         new_ssd_idx = ssd.get_ssd_idx(res, prob_threshold=params[3], min_steady_length=0)
         outputs[i] += (el['steady_idx'] - new_ssd_idx)**2
