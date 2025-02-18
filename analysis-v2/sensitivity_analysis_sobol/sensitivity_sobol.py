@@ -89,13 +89,16 @@ problem = ProblemSpec({
 })
 
 # Generating parameter configurations via Sobol sampling
-param_values = problem.sample_sobol(2**9)
+param_values = problem.sample_sobol(2**11)
 param_values.samples = np.array([(round(e[0]),
                                   round(e[1]),
                                   e[2],
                                   e[3],
                                   round(e[4]) if round(e[4]) % 2 else round(e[4]) - 1)
                                 for e in param_values.samples])
+
+print(param_values)
+print(f'Number of samples: {len(param_values.samples)}')
 
 # Running the model for the different configurations of parameters
 outputs = np.zeros([param_values.samples.shape[0]])
