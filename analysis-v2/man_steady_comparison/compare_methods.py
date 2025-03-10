@@ -501,7 +501,7 @@ ax2.grid(axis='y', linestyle='--', alpha=0.7)
 #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
 #plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
 ax1.hist([np.array(orig_diffs_scattered + orig_diffs_clustered), np.array(new_diffs_scattered + new_diffs_clustered)],
-         bins=30, alpha=0.5, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
+         bins=30, alpha=1, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
 
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 100)
@@ -559,7 +559,7 @@ plt.grid(axis='y', linestyle='--', alpha=0.7)
 #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
 #plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
 ax1.hist([abs(np.array(orig_diffs_scattered + orig_diffs_clustered)), abs(np.array(new_diffs_scattered + new_diffs_clustered))],
-         bins=30, alpha=0.5, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
+         bins=30, alpha=1, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
 
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 100)
