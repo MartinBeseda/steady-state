@@ -1,7 +1,0 @@
-No. clustered diffs:205
-Clustered diffs: New std: 582.3722420756965, New mean: 266.54634146341465, Orig std: 619.9396918721982, Orig mean: 79.88780487804878
-No. scattered diffs:172
-Scattered diffs: New std: 724.1297440063336, New mean: 1291.5581395348838, Orig std: 820.7606437585126, Orig mean: 1087.9767441860465
-No. diffs:377
-All diffs: New std: 827.2270355232766, New mean: 734.1909814323608, Orig std: 876.6060450203232, Orig mean: 539.8116710875331
-No. all series: 407

@@ -62,7 +62,7 @@ no_scattered = 0
 # Differences between absolute values of models' predictions
 pred_abs_diffs = []
 
-# Parameters =
+# Parameters
 outliers_window_size = 100
 prob_win_size = 500
 t_crit = 4
@@ -82,7 +82,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     orig_clas_idx = json.load(open(f'orig_classification/{fname}'))['steady_state_starts'][fork_idx]
 
     # Load the corresponding timeseries
-    timeseries = json.load(open(f'../sensitivity_analysis/data_st/{fname}_{fork_idx}'))
+    timeseries = json.load(open(f'../compare_configurations/data_st/{fname}_{fork_idx}'))
     timeseries1 = timeseries.copy()
     timeseries, _ = ssd.substitute_outliers_percentile(timeseries,
                                                        percentile_threshold_upper=98,
@@ -146,7 +146,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     # plt.vlines([data_sum[e['keyname']]['idxs'][-2:]],
     #            min(data_sum[e['keyname']]['series']),
     #            max(data_sum[e['keyname']]['series']),
-    #            colors=['green','red'],
+    #            colors=['green','#D85C5C'],
     #            label=['orig', 'new'])
     # plt.vlines([data_sum[e['keyname']]['steady_idx']],
     #            min(data_sum[e['keyname']]['series']),
@@ -207,11 +207,23 @@ for k, v in data_sum.items():
 # Plot bar plots comparing numbers of incorrectly detected unsteady series
 # print(no_unsteady_orig, no_unsteady_new)
 plt.figure()
-plt.title('No. unsteady series detected')
-plt.bar([1, 2, 3, 4],
-        [no_unsteady_orig_scattered, no_unsteady_orig_clustered, no_unsteady_new_scattered,
-         no_unsteady_new_clustered],
-        tick_label=['Orig scat', 'Orig clust', 'New scat', 'New clust'])
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.title('No. unsteady series detected')
+plt.tick_params(axis='both', labelsize=14)
+bars_orig = plt.bar([1, 3],
+                    [no_unsteady_orig_scattered, no_unsteady_orig_clustered],
+                    #    tick_label=['Scattered', 'Clustered'],
+                    color='#4c72b0',
+                    edgecolor='#2A4D69')
+bars_new = plt.bar([2, 4],
+                   [no_unsteady_new_scattered, no_unsteady_new_clustered],
+                   #  tick_label=['Scattered', 'Clustered'],
+                   color='#D85C5C',
+                   edgecolor='#9E3D3D')
+plt.xticks(ticks=(1.5,3.5), labels=('Scattered', 'Clustered'))
+plt.legend([bars_orig, bars_new], ['CP-SSD', 'KB-KSSD'], fontsize=14)
 plt.savefig('barplots/no_unsteady.png')
 plt.close()
 
@@ -314,47 +326,66 @@ false_positives = [false_positives_orig, false_positives_new]
 false_negatives = [false_negatives_orig, false_negatives_new]
 
 # Create the figure and axes
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 8))
+
+ax1.grid(axis='y', linestyle='--', alpha=0.7)
+ax2.grid(axis='y', linestyle='--', alpha=0.7)
 
 # First subplot for original data
-ax1.bar(bar_positions[0], no_agreements[0], bar_width, label='Agreements (Orig)', color='lightgrey')
-ax1.bar(bar_positions[0] -bar_width/4, false_positives[0], bar_width/2, label='False Positives (Orig)', color='red')
-ax1.bar(bar_positions[0] + bar_width/4, false_negatives[0], bar_width/2, label='False Negatives (Orig)', color='blue')
+ax1.bar(bar_positions[0], no_agreements[0], bar_width, label='Agreements', color='lightgrey')
+ax1.bar(bar_positions[0] -bar_width/4, false_positives[0], bar_width/2, label='False Positives', color='#D85C5C',
+        edgecolor='#9E3D3D')
+ax1.bar(bar_positions[0] + bar_width/4, false_negatives[0], bar_width/2, label='False Negatives', color='#4c72b0',
+        edgecolor='#2A4D69')
 
 # Add horizontal lines to the first subplot (Original)
-ax1.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', label='Total Agreements')
-ax1.axhline(y=n_method_agreements, color='black', linewidth=3, linestyle='-.', label='Method Agreements')
+ax1.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', label='Total Agmts.')
+ax1.axhline(y=n_method_agreements, color='black', linewidth=3, linestyle='-.', label='Method Agmts.')
 
 # Second subplot for new data
-ax2.bar(bar_positions[1], no_agreements[1], bar_width, label='Agreements with GT', color='lightgrey')
-ax2.bar(bar_positions[1] - bar_width/4, false_positives[1], bar_width/2, label='False Positives', color='red')
-ax2.bar(bar_positions[1] + bar_width/4, false_negatives[1], bar_width/2, label='False Negatives', color='blue')
+ax2.bar(bar_positions[1], no_agreements[1], bar_width, label='Agreements with JAGT', color='lightgrey')
+ax2.bar(bar_positions[1] - bar_width/4, false_positives[1], bar_width/2, label='False Positives', color='#D85C5C',
+        edgecolor='#9E3D3D')
+ax2.bar(bar_positions[1] + bar_width/4, false_negatives[1], bar_width/2, label='False Negatives', color='#4c72b0',
+        edgecolor='#2A4D69')
 
 # Add horizontal lines to the second subplot (New)
-ax2.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', label='Total Agreements')
-ax2.axhline(y=n_method_agreements, color='black', linewidth=3,linestyle='-.', label='Method Agreements')
+ax2.axhline(y=n_total_agreements, color='green', linewidth=3,linestyle='--', label='Total Agmts.')
+ax2.axhline(y=n_method_agreements, color='black', linewidth=3,linestyle='-.', label='Method Agmts.')
 
 # Set labels and title for original subplot
-ax1.set_ylabel('Counts')
-ax1.set_xlabel('Original')
+# ax1.set_ylabel('Counts')
+ax1.set_xlabel('CP-SSD', fontsize=20)
 
 ax1.set_xticks([])
 
 # Set labels and title for new subplot
-ax2.set_xlabel('New')
+ax2.set_xlabel('KB-KSSD', fontsize=20)
 
-ax2.set_ylabel('Counts')
+# ax2.set_ylabel('Counts')
 ax2.set_xticks([])
+
+ax1.tick_params(axis='y', labelsize=20)
+ax2.tick_params(axis='y', labelsize=20)
 
 ax1.set(ylim=(0, 420))
 ax2.set(ylim=(0, 420))
 
-# Add legends
-ax2.legend(loc='upper right')
-# ax2.legend()
+# ax2.set_yticks([])
 
-# Display the plot
-plt.tight_layout()
+# Add legends
+#fig.legend(loc='upper center', bbox_to_anchor=(0.5, 1.05), ncol=2,fontsize=20)
+#plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.5), ncol=2, fontsize=20)
+# ax2.legend()
+# Get the legend handles and labels from ax1 (first subplot)
+handles, labels = ax1.get_legend_handles_labels()
+
+# Add a common legend using the handles and labels from ax1
+fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.98), ncol=3,fontsize=20)
+
+# Adjust layout to ensure the legend fits above the plots
+plt.tight_layout(rect=[0, 0, 1, 0.85])
+
 plt.savefig('barplots/agreements.png')
 plt.close()
 
@@ -364,8 +395,12 @@ print(f'Number of agreements with GT: total number of samples: {no_agreements_or
 
 # Plot the number of agreements with the larger dataset containing even unsteady timeseries
 plt.figure()
-plt.title('Number of agreements w.r.t. steadiness (larger dataset)')
-plt.bar([1, 2], [no_agreements_orig, no_agreements_new], tick_label=['Orig', 'New'])
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.title('Number of agreements w.r.t. steadiness (larger dataset)')
+plt.bar([1, 2], [no_agreements_orig, no_agreements_new], tick_label=['KB-KSSD', 'CP-SSD'], color='#4c72b0',
+        edgecolor='#2A4D69')
 plt.savefig('barplots/larger_set_agreements.png')
 plt.close()
 
@@ -377,26 +412,26 @@ mean_new, std_new = norm.fit(new_diffs_clustered)
 fig, ax1 = plt.subplots(figsize=(10,6))
 plt.title('SSD Reference idx - detected idx (clustered labels)')
 #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
-#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='red')
+#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
 ax1.hist([orig_diffs_clustered, new_diffs_clustered], bins=30, alpha=0.5, label=['original', 'new'],
-         color=['blue', 'red'])
+         color=['#4c72b0', '#D85C5C'])
 
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 100)
 
 # Plot vertical lines for 95% confidence interval (mean ± 2σ) for original data
-ax1.axvline(mean_orig - 2 * std_orig, color='blue', linestyle='--', linewidth=1.5, label='Original 95% CI lower')
-ax1.axvline(mean_orig + 2 * std_orig, color='blue', linestyle='--', linewidth=1.5, label='Original 95% CI upper')
+ax1.axvline(mean_orig - 2 * std_orig, color='#4c72b0', linestyle='--', linewidth=1.5, label='Original 95% CI lower')
+ax1.axvline(mean_orig + 2 * std_orig, color='#4c72b0', linestyle='--', linewidth=1.5, label='Original 95% CI upper')
 
 # Plot vertical lines for 95% confidence interval (mean ± 2σ) for new data
-ax1.axvline(mean_new - 2 * std_new, color='red', linestyle='--', linewidth=1.5, label='New 95% CI lower')
-ax1.axvline(mean_new + 2 * std_new, color='red', linestyle='--', linewidth=1.5, label='New 95% CI upper')
+ax1.axvline(mean_new - 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI lower')
+ax1.axvline(mean_new + 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI upper')
 ax2 = ax1.twinx()
 # ---- Fit and plot Gaussian for new data ----
 p_new = norm.pdf(x, mean_new, std_new)
-ax2.plot(x, p_new, 'r-', linewidth=2, label=f'New Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
+ax2.plot(x, p_new, 'r-', linewidth=2, label=f'KB-KSSD Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
 p_orig = norm.pdf(x, mean_orig, std_orig)
-ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'Original Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
+ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'CP-SSD Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
 
 
 # Place the legend outside the plot
@@ -412,65 +447,98 @@ print(f'Clustered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {st
 mean_orig, std_orig = norm.fit(orig_diffs_scattered)
 mean_new, std_new = norm.fit(new_diffs_scattered)
 fig, ax1 = plt.subplots(figsize=(10,6))
+# plt.gca().spines['top'].set_visible(False)
+# plt.gca().spines['right'].set_visible(False)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
 #plt.figure(figsize=(10, 6))
 plt.title('SSD Reference idx - detected idx (scattered labels)')
 #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
-#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='red')
-ax1.hist([orig_diffs_scattered, new_diffs_scattered], bins=30, alpha=0.5, label=['original', 'new'], color=['blue', 'red'])
+#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
+ax1.hist([orig_diffs_scattered, new_diffs_scattered], bins=30, alpha=0.5, label=['original', 'new'], color=['#4c72b0', '#D85C5C'])
 
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 100)
 
 # Plot vertical lines for 95% confidence interval (mean ± 2σ) for original data
-ax1.axvline(mean_orig - 2 * std_orig, color='blue', linestyle='--', linewidth=1.5, label='Original 95% CI lower')
-ax1.axvline(mean_orig + 2 * std_orig, color='blue', linestyle='--', linewidth=1.5, label='Original 95% CI upper')
+ax1.axvline(mean_orig - 2 * std_orig, color='#4c72b0', linestyle='--', linewidth=1.5, label='Original 95% CI lower')
+ax1.axvline(mean_orig + 2 * std_orig, color='#4c72b0', linestyle='--', linewidth=1.5, label='Original 95% CI upper')
 
 # Plot vertical lines for 95% confidence interval (mean ± 2σ) for new data
-ax1.axvline(mean_new - 2 * std_new, color='red', linestyle='--', linewidth=1.5, label='New 95% CI lower')
-ax1.axvline(mean_new + 2 * std_new, color='red', linestyle='--', linewidth=1.5, label='New 95% CI upper')
+ax1.axvline(mean_new - 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI lower')
+ax1.axvline(mean_new + 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI upper')
 ax2 = ax1.twinx()
 # ---- Fit and plot Gaussian for new data ----
 p_new = norm.pdf(x, mean_new, std_new)
-ax2.plot(x, p_new, 'r-', linewidth=2, label=f'New Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
+ax2.plot(x, p_new, 'r-', linewidth=2, label=f'KB-KSSD Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
 p_orig = norm.pdf(x, mean_orig, std_orig)
-ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'Original Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
+ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'CP-SSD Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
 
 # Place the legend outside the plot
 plt.legend(loc='upper left')  # Adjust position of the legend
-
+# plt.show()
+# exit(-1)
 plt.savefig('histograms/differences_scattered_30_bins.png')
 plt.close()
 print(f'No. scattered diffs:{len(orig_diffs_scattered)}')
 print(f'Scattered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}')
 
-# Plot histogram of SSD absolute errors for all points
+# Plot histogram of SSD errors for all points
 mean_orig, std_orig = norm.fit(np.array(orig_diffs_scattered + orig_diffs_clustered))
 mean_new, std_new = norm.fit(np.array(new_diffs_scattered + new_diffs_clustered))
 
 # plt.figure(figsize=(10, 6))
+plt.figure()
+# plt.gca().spines['top'].set_visible(False)
+# plt.gca().spines['right'].set_visible(False)
+
 fig, ax1 = plt.subplots(figsize=(10,6))
-plt.title('SSD Reference idx - detected idx (all labels)')
+ax2 = ax1.twinx()
+
+ax1.grid(axis='y', linestyle='--', alpha=0.7)
+ax2.grid(axis='y', linestyle='--', alpha=0.7)
+
+# plt.title('SSD Reference idx - detected idx (all labels)')
 #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
-#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='red')
+#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
 ax1.hist([np.array(orig_diffs_scattered + orig_diffs_clustered), np.array(new_diffs_scattered + new_diffs_clustered)],
-         bins=30, alpha=0.5, label=['original', 'new'], color=['blue', 'red'])
+         bins=30, alpha=0.5, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
 
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 100)
 
 # ---- Fit and plot Gaussian for new data ----
 p_new = norm.pdf(x, mean_new, std_new)
-ax2.plot(x, p_new, 'r-', linewidth=2, label=f'New Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
+ax2.plot(x, p_new, '-', linewidth=2, label=f'KB-KSSD Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}', color='#4c72b0')
 p_orig = norm.pdf(x, mean_orig, std_orig)
-ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'Original Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
+ax2.plot(x, p_orig, '-', linewidth=2, label=f'CP-SSD Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}', color='#D85C5C')
 
-ax1.set_xlim(xmin=0)
+#ax1.set_xlim(xmin=0)
+
+ax1.tick_params(axis='both', which='both', labelsize=20)
+ax2.tick_params(axis='both', which='both', labelsize=20)
+ax2.set_yticks([])
 
 # Place the legend outside the plot
-plt.legend(loc='upper left')  # Adjust position of the legend
+# plt.legend(loc='upper left', fontsize=20)  # Adjust position of the legend
+
+
+# Add a common legend using the handles and labels from ax1
+fig.legend( loc='upper center', bbox_to_anchor=(0.5, 1.0), ncol=2,fontsize=20)
+
+# Adjust layout to ensure the legend fits above the plots
+fig.tight_layout(rect=[0, 0, 1, 0.8])
+
+# Plot vertical lines for 95% confidence interval (mean ± 2σ) for original data
+ax1.axvline(mean_orig - 2 * std_orig, color='#4c72b0', linestyle='--', linewidth=1.5, label='Original 95% CI lower')
+ax1.axvline(mean_orig + 2 * std_orig, color='#4c72b0', linestyle='--', linewidth=1.5, label='Original 95% CI upper')
+
+# Plot vertical lines for 95% confidence interval (mean ± 2σ) for new data
+ax1.axvline(mean_new - 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI lower')
+ax1.axvline(mean_new + 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI upper')
 
 plt.savefig('histograms/differences_all_30_bins.png')
 plt.close()
+
 print(f'No. abs errs:{len(orig_diffs_scattered + orig_diffs_clustered)}')
 print(f'All errs: New std: {std_new}, New mean: {mean_new} New median: {np.median(new_diffs_scattered +
                                                                                   new_diffs_clustered)}, '
@@ -483,26 +551,33 @@ mean_new, std_new = norm.fit(abs(np.array(new_diffs_scattered + new_diffs_cluste
 
 # plt.figure(figsize=(10, 6))
 fig, ax1 = plt.subplots(figsize=(10,6))
-plt.title('SSD Reference idx - detected idx (all labels)')
+ax2 = ax1.twinx()
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.title('SSD Reference idx - detected idx (all labels)')
 #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
-#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='red')
+#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
 ax1.hist([abs(np.array(orig_diffs_scattered + orig_diffs_clustered)), abs(np.array(new_diffs_scattered + new_diffs_clustered))],
-         bins=30, alpha=0.5, label=['original', 'new'], color=['blue', 'red'])
+         bins=30, alpha=0.5, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
 
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 100)
 
 # ---- Fit and plot Gaussian for new data ----
 p_new = norm.pdf(x, mean_new, std_new)
-ax2.plot(x, p_new, 'r-', linewidth=2, label=f'New Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
+ax2.plot(x, p_new, '-', linewidth=2, label=f'KB-KSSD Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}', color='#4c72b0')
 p_orig = norm.pdf(x, mean_orig, std_orig)
-ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'Original Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
+ax2.plot(x, p_orig, '-', linewidth=2, label=f'CP-SSD Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}', color='#D85C5C')
 
 ax1.set_xlim(xmin=0)
 
-# Place the legend outside the plot
-plt.legend(loc='upper left')  # Adjust position of the legend
+ax1.tick_params(axis='both', which='both', labelsize=20)
+ax2.tick_params(axis='both', which='both', labelsize=20)
 
+# Place the legend outside the plot
+plt.legend(loc='upper right', fontsize=20)  # Adjust position of the legend
+plt.tight_layout()
 plt.savefig('histograms/abs_errs_all_30_bins.png')
 plt.close()
 print(f'No. abs errs:{len(orig_diffs_scattered + orig_diffs_clustered)}')
@@ -514,55 +589,57 @@ print(f'All abs errs: New std: {std_new}, New mean: {mean_new}, '
 mean_orig, std_orig = norm.fit(orig_diffs_scattered + orig_diffs_clustered)
 mean_new, std_new = norm.fit(new_diffs_scattered + new_diffs_clustered)
 
-# plt.figure(figsize=(10, 6))
-fig, ax1 = plt.subplots(figsize=(10,6))
-plt.title('SSD Reference idx - detected idx (all labels)')
-#plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
-#plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='red')
-ax1.hist([orig_diffs_scattered + orig_diffs_clustered, new_diffs_scattered + new_diffs_clustered],
-         bins=30, alpha=0.5, label=['original', 'new'], color=['blue', 'red'])
-
-xmin, xmax = plt.xlim()
-x = np.linspace(xmin, xmax, 100)
-
-# Plot vertical lines for 95% confidence interval (mean ± 2σ) for original data
-ax1.axvline(mean_orig - 2 * std_orig, color='blue', linestyle='--', linewidth=1.5, label='Original 95% CI lower')
-ax1.axvline(mean_orig + 2 * std_orig, color='blue', linestyle='--', linewidth=1.5, label='Original 95% CI upper')
-
-# Plot vertical lines for 95% confidence interval (mean ± 2σ) for new data
-ax1.axvline(mean_new - 2 * std_new, color='red', linestyle='--', linewidth=1.5, label='New 95% CI lower')
-ax1.axvline(mean_new + 2 * std_new, color='red', linestyle='--', linewidth=1.5, label='New 95% CI upper')
-ax2 = ax1.twinx()
-# ---- Fit and plot Gaussian for new data ----
-p_new = norm.pdf(x, mean_new, std_new)
-ax2.plot(x, p_new, 'r-', linewidth=2, label=f'New Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
-p_orig = norm.pdf(x, mean_orig, std_orig)
-ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'Original Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
-
-
-# Place the legend outside the plot
-plt.legend(loc='upper left')  # Adjust position of the legend
-
-plt.savefig('histograms/differences_all_30_bins.png')
-plt.close()
+# # plt.figure(figsize=(10, 6))
+# fig, ax1 = plt.subplots(figsize=(10,6))
+# # plt.title('SSD Reference idx - detected idx (all labels)')
+# #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
+# #plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
+# ax1.hist([orig_diffs_scattered + orig_diffs_clustered, new_diffs_scattered + new_diffs_clustered],
+#          bins=30, alpha=0.5, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
+#
+# xmin, xmax = plt.xlim()
+# x = np.linspace(xmin, xmax, 100)
+#
+# # Plot vertical lines for 95% confidence interval (mean ± 2σ) for original data
+# ax1.axvline(mean_orig - 2 * std_orig, color='#4c72b0', linestyle='--', linewidth=1.5, label='Original 95% CI lower')
+# ax1.axvline(mean_orig + 2 * std_orig, color='#4c72b0', linestyle='--', linewidth=1.5, label='Original 95% CI upper')
+#
+# # Plot vertical lines for 95% confidence interval (mean ± 2σ) for new data
+# ax1.axvline(mean_new - 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI lower')
+# ax1.axvline(mean_new + 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI upper')
+# ax2 = ax1.twinx()
+# # ---- Fit and plot Gaussian for new data ----
+# p_new = norm.pdf(x, mean_new, std_new)
+# ax2.plot(x, p_new, 'r-', linewidth=2, label=f'New Gaussian: μ={mean_new:.2f}, σ={std_new:.2f}')
+# p_orig = norm.pdf(x, mean_orig, std_orig)
+# ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'Original Gaussian: μ={mean_orig:.2f}, σ={std_orig:.2f}')
+#
+#
+# # Place the legend outside the plot
+# plt.legend(loc='upper left')  # Adjust position of the legend
+#
+# plt.savefig('histograms/differences_all_30_bins.png')
+# plt.close()
 
 # Create boxplots of differences
 plt.figure()
 plt.title('Detection differences (clustered labels)')
-plt.boxplot([orig_diffs_clustered, new_diffs_clustered], tick_labels=['orig', 'new'])
+plt.boxplot([orig_diffs_clustered, new_diffs_clustered], tick_labels=['CP-SSD', 'KB-KSSD'])
 plt.savefig('boxplots/differences_clustered.png')
 plt.close()
 
 plt.figure()
 plt.title('Detection differences (scattered labels)')
-plt.boxplot([orig_diffs_scattered, new_diffs_scattered], tick_labels=['orig', 'new'])
+plt.boxplot([orig_diffs_scattered, new_diffs_scattered], tick_labels=['CP-SSD', 'KB-KSSD'])
 plt.savefig('boxplots/differences_scattered.png')
 plt.close()
 
 plt.figure()
-plt.title('Detection differences (all labels)')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.title('Detection differences (all labels)')
 plt.boxplot([orig_diffs_clustered + orig_diffs_scattered, new_diffs_clustered + new_diffs_scattered],
-            tick_labels=['orig', 'new'])
+            tick_labels=['CP-SSD', 'KB-KSSD'])
+plt.ylim(-3000, 3000)
 plt.savefig('boxplots/differences_all.png')
 plt.close()
 
@@ -571,55 +648,74 @@ plt.close()
 # Create the figure and axes
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 6))
 
+ax1.grid(axis='y', linestyle='--', alpha=0.7)
+ax2.grid(axis='y', linestyle='--', alpha=0.7)
+
 # First subplot for original data
 ax1.bar(bar_positions[0], manhattan_orig_scat + manhattan_orig_clust, bar_width, label='Total distance',
         color='lightgrey')
 ax1.bar(bar_positions[0] -bar_width/4, manhattan_orig_clust, bar_width/2, label='Distance w.r.t. clustered idxs',
-        color='red')
+        color='#D85C5C', edgecolor='#9E3D3D')
 ax1.bar(bar_positions[0] + bar_width/4, manhattan_orig_scat, bar_width/2, label='Distance w.r.t. scattered idxs',
-        color='blue')
+        color='#4c72b0', edgecolor='#2A4D69')
+
 
 # Second subplot for new data
 ax2.bar(bar_positions[1], manhattan_new_scat + manhattan_new_clust, bar_width, label='Total distance',
         color='lightgrey')
 ax2.bar(bar_positions[1] - bar_width/4, manhattan_new_clust, bar_width/2, label='Distance w.r.t. clustered idxs',
-        color='red')
+        color='#D85C5C', edgecolor='#9E3D3D')
 ax2.bar(bar_positions[1] + bar_width/4, manhattan_new_scat, bar_width/2, label='Distance w.r.t. scattered idxs',
-        color='blue')
+        color='#4c72b0', edgecolor='#2A4D69')
 
 # Set labels and title for original subplot
-ax1.set_ylabel('Manhattan distance w.r.t. GT')
-ax1.set_xlabel('Original')
+ax1.set_ylabel('Manhattan distance w.r.t. GT', fontsize=20)
+ax1.set_xlabel('CP-SSD', fontsize=20)
 
 ax1.set_xticks([])
+ax1.tick_params(axis='both', labelsize=20)
 
 # Set labels and title for new subplot
-ax2.set_xlabel('New')
+ax2.set_xlabel('KB-KSSD', fontsize=20)
 
 # ax2.set_ylabel('Counts')
 ax2.set_xticks([])
+ax2.tick_params(axis='both', labelsize=20)
 
 # Add legends
-# ax1.legend(loc='upper right')
-ax2.legend()
 
+handles, labels = ax1.get_legend_handles_labels()
+# ax1.legend(loc='upper right')
+fig.legend(handles, labels, loc='upper center', ncol=2,bbox_to_anchor=(0.5, 1.0), fontsize=19)
+
+ax1.set_ylim(0, 165000)
+ax2.set_ylim(0, 165000)
 plt.ylim(0, 165000)
 
 # Display the plot
-plt.tight_layout()
+fig.tight_layout(rect=[0.05, 0, 0.95, 0.85])
+
 plt.savefig(f'barplots/manhattan.png')
 plt.close()
 
 # Check, if differences among models' predictions are normally distributed and plot them
 plt.figure()
-plt.title('Differences of absolute values of models\' prediction distances from GT (orig-new)')
-plt.hist(pred_abs_diffs, bins=30)
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.title('Differences of absolute values of models\' prediction distances from GT (orig-new)')
+plt.hist(pred_abs_diffs, bins=30, color='#4c72b0', edgecolor='#2A4D69')
 plt.savefig(f'histograms/pred_abs_diffs.png')
 plt.close()
 
 plt.figure()
-plt.title('Diffs of all orig - new differences w.r.t. GT')
-plt.hist(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered))
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.title('Diffs of all orig - new differences w.r.t. GT')
+plt.hist(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_diffs_scattered + new_diffs_clustered),
+         color='#4c72b0',
+         edgecolor='#2A4D69')
 plt.savefig('histograms/diffs_of_diffs_all.png')
 plt.close()
 
