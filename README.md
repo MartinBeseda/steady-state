@@ -1,5 +1,5 @@
-# A Kernel-Based Method for Accurate Steady-State Detection in Execution Time Series
-Replication package of the work ‟*A Kernel-Based Method for Accurate Steady-State Detection in Execution Time Series* ”.
+# Kernel-Based Approach for Precise Steady-State Detection in Performance Time Seriess
+Replication package of the work ‟*Kernel-Based Approach for Precise Steady-State Detection in Performance Time Series* ”.
 
 This work compares a new KB-KSSD method with the CP-SSD method introduced in *Towards effective assessment of steady state performance in Java software: Are we there yet?*.
 
