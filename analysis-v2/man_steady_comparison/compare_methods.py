@@ -225,6 +225,7 @@ bars_new = plt.bar([2, 4],
 plt.xticks(ticks=(1.5,3.5), labels=('Scattered', 'Clustered'))
 plt.legend([bars_orig, bars_new], ['CP-SSD', 'KB-KSSD'], fontsize=14)
 plt.savefig('barplots/no_unsteady.png')
+plt.savefig('barplots/no_unsteady.eps', format='eps')
 plt.close()
 
 print(f'Number of false negatives: {no_unsteady_orig_scattered, no_unsteady_orig_clustered, no_unsteady_new_scattered,
@@ -387,6 +388,7 @@ fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.98), ncol
 plt.tight_layout(rect=[0, 0, 1, 0.85])
 
 plt.savefig('barplots/agreements.png')
+plt.savefig('barplots/agreements.eps', format='eps')
 plt.close()
 
 print(f'Number of agreements with GT: total number of samples: {no_agreements_orig + false_negatives_orig
@@ -402,6 +404,7 @@ plt.grid(axis='y', linestyle='--', alpha=0.7)
 plt.bar([1, 2], [no_agreements_orig, no_agreements_new], tick_label=['KB-KSSD', 'CP-SSD'], color='#4c72b0',
         edgecolor='#2A4D69')
 plt.savefig('barplots/larger_set_agreements.png')
+plt.savefig('barplots/larger_set_agreements.eps', format='eps')
 plt.close()
 
 # Plot histogram of SSD differences for clustered points
@@ -438,6 +441,7 @@ ax2.plot(x, p_orig, 'b-', linewidth=2, label=f'CP-SSD Gaussian: μ={mean_orig:.2
 plt.legend(loc='upper left')  # Adjust position of the legend
 
 plt.savefig('histograms/differences_cluster_30_bins.png')
+plt.savefig('histograms/differences_cluster_30_bins.eps', format='eps')
 plt.close()
 print(f'No. clustered diffs:{len(orig_diffs_clustered)}')
 print(f'Clustered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}')
@@ -478,6 +482,7 @@ plt.legend(loc='upper left')  # Adjust position of the legend
 # plt.show()
 # exit(-1)
 plt.savefig('histograms/differences_scattered_30_bins.png')
+plt.savefig('histograms/differences_scattered_30_bins.eps', format='eps')
 plt.close()
 print(f'No. scattered diffs:{len(orig_diffs_scattered)}')
 print(f'Scattered diffs: New std: {std_new}, New mean: {mean_new}, Orig std: {std_orig}, Orig mean: {mean_orig}')
@@ -488,11 +493,19 @@ mean_new, std_new = norm.fit(np.array(new_diffs_scattered + new_diffs_clustered)
 
 # plt.figure(figsize=(10, 6))
 plt.figure()
-# plt.gca().spines['top'].set_visible(False)
-# plt.gca().spines['right'].set_visible(False)
+plt.gca().spines['top'].set_visible(False)
+plt.gca().spines['right'].set_visible(False)
 
 fig, ax1 = plt.subplots(figsize=(10,6))
 ax2 = ax1.twinx()
+
+# Remove top and right spines for ax1
+ax1.spines['top'].set_visible(False)
+ax1.spines['right'].set_visible(False)
+
+# Remove top and right spines for ax2
+ax2.spines['top'].set_visible(False)
+ax2.spines['right'].set_visible(False)
 
 ax1.grid(axis='y', linestyle='--', alpha=0.7)
 ax2.grid(axis='y', linestyle='--', alpha=0.7)
@@ -501,7 +514,7 @@ ax2.grid(axis='y', linestyle='--', alpha=0.7)
 #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
 #plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
 ax1.hist([np.array(orig_diffs_scattered + orig_diffs_clustered), np.array(new_diffs_scattered + new_diffs_clustered)],
-         bins=30, alpha=1, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
+         bins=30, alpha=1, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'],  edgecolor='#4D4D4D')
 
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 100)
@@ -523,7 +536,7 @@ ax2.set_yticks([])
 
 
 # Add a common legend using the handles and labels from ax1
-fig.legend( loc='upper center', bbox_to_anchor=(0.5, 1.0), ncol=2,fontsize=20)
+fig.legend( loc='upper center', bbox_to_anchor=(0.5, 1.0), ncol=2, fontsize=20)
 
 # Adjust layout to ensure the legend fits above the plots
 fig.tight_layout(rect=[0, 0, 1, 0.8])
@@ -537,6 +550,7 @@ ax1.axvline(mean_new - 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1
 ax1.axvline(mean_new + 2 * std_new, color='#D85C5C', linestyle='--', linewidth=1.5, label='New 95% CI upper')
 
 plt.savefig('histograms/differences_all_30_bins.png')
+plt.savefig('histograms/differences_all_30_bins.eps', format='eps')
 plt.close()
 
 print(f'No. abs errs:{len(orig_diffs_scattered + orig_diffs_clustered)}')
@@ -554,12 +568,23 @@ fig, ax1 = plt.subplots(figsize=(10,6))
 ax2 = ax1.twinx()
 plt.gca().spines['top'].set_visible(False)
 plt.gca().spines['right'].set_visible(False)
-plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+# Remove top and right spines for ax1
+ax1.spines['top'].set_visible(False)
+ax1.spines['right'].set_visible(False)
+
+# Remove top and right spines for ax2
+ax2.spines['top'].set_visible(False)
+ax2.spines['right'].set_visible(False)
+
+ax1.grid(axis='y', linestyle='--', alpha=0.7)
+ax2.grid(axis='y', linestyle='--', alpha=0.7)
+
 # plt.title('SSD Reference idx - detected idx (all labels)')
 #plt.hist([orig_diffs, new_diffs], label=['orig', 'new'])
 #plt.hist(new_diffs, bins=20, density=True, alpha=0.3, label='new', color='#D85C5C')
 ax1.hist([abs(np.array(orig_diffs_scattered + orig_diffs_clustered)), abs(np.array(new_diffs_scattered + new_diffs_clustered))],
-         bins=30, alpha=1, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'])
+         bins=30, alpha=1, label=['CP-SSD', 'KB-KSSD'], color=['#4c72b0', '#D85C5C'], edgecolor='#4D4D4D')
 
 xmin, xmax = plt.xlim()
 x = np.linspace(xmin, xmax, 100)
@@ -574,11 +599,14 @@ ax1.set_xlim(xmin=0)
 
 ax1.tick_params(axis='both', which='both', labelsize=20)
 ax2.tick_params(axis='both', which='both', labelsize=20)
+ax2.set_yticks([])
 
 # Place the legend outside the plot
-plt.legend(loc='upper right', fontsize=20)  # Adjust position of the legend
-plt.tight_layout()
+fig.legend(loc='upper center', bbox_to_anchor=(0.5, 1.0), ncol=2, fontsize=20)
+
+plt.tight_layout(rect=[0, 0, 1, 0.8])
 plt.savefig('histograms/abs_errs_all_30_bins.png')
+plt.savefig('histograms/abs_errs_all_30_bins.eps', format='eps')
 plt.close()
 print(f'No. abs errs:{len(orig_diffs_scattered + orig_diffs_clustered)}')
 print(f'All abs errs: New std: {std_new}, New mean: {mean_new}, '
@@ -626,12 +654,14 @@ plt.figure()
 plt.title('Detection differences (clustered labels)')
 plt.boxplot([orig_diffs_clustered, new_diffs_clustered], tick_labels=['CP-SSD', 'KB-KSSD'])
 plt.savefig('boxplots/differences_clustered.png')
+plt.savefig('boxplots/differences_clustered.eps', format='eps')
 plt.close()
 
 plt.figure()
 plt.title('Detection differences (scattered labels)')
 plt.boxplot([orig_diffs_scattered, new_diffs_scattered], tick_labels=['CP-SSD', 'KB-KSSD'])
 plt.savefig('boxplots/differences_scattered.png')
+plt.savefig('boxplots/differences_scattered.eps', format='eps')
 plt.close()
 
 plt.figure()
@@ -641,6 +671,7 @@ plt.boxplot([orig_diffs_clustered + orig_diffs_scattered, new_diffs_clustered + 
             tick_labels=['CP-SSD', 'KB-KSSD'])
 plt.ylim(-3000, 3000)
 plt.savefig('boxplots/differences_all.png')
+plt.savefig('boxplots/differences_all.eps', format='eps')
 plt.close()
 
 # Plot the Manhattan distances of differences from GT
@@ -696,6 +727,7 @@ plt.ylim(0, 165000)
 fig.tight_layout(rect=[0.05, 0, 0.95, 0.85])
 
 plt.savefig(f'barplots/manhattan.png')
+plt.savefig(f'barplots/manhattan.eps', format='eps')
 plt.close()
 
 # Check, if differences among models' predictions are normally distributed and plot them
@@ -706,6 +738,7 @@ plt.grid(axis='y', linestyle='--', alpha=0.7)
 # plt.title('Differences of absolute values of models\' prediction distances from GT (orig-new)')
 plt.hist(pred_abs_diffs, bins=30, color='#4c72b0', edgecolor='#2A4D69')
 plt.savefig(f'histograms/pred_abs_diffs.png')
+plt.savefig(f'histograms/pred_abs_diffs.eps', format='eps')
 plt.close()
 
 plt.figure()
@@ -717,6 +750,7 @@ plt.hist(np.array(orig_diffs_scattered + orig_diffs_clustered) - np.array(new_di
          color='#4c72b0',
          edgecolor='#2A4D69')
 plt.savefig('histograms/diffs_of_diffs_all.png')
+plt.savefig('histograms/diffs_of_diffs_all.eps', format='eps')
 plt.close()
 
 print(f'Mean and median of differences of ALL orig - new diffs from GT: '

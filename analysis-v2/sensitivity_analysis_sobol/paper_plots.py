@@ -45,6 +45,7 @@ plt.ylim(0, 0.25)
 plt.tick_params(axis='y', labelsize=14)
 plt.tight_layout()
 plt.savefig('barplots/s1.png')
+plt.savefig('barplots/s1.eps', format='eps')
 plt.close()
 
 # Barplot of total order indices
@@ -70,41 +71,91 @@ plt.yticks((0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6))
 plt.tick_params(axis='y', labelsize=14)
 plt.tight_layout()
 plt.savefig('barplots/st.png')
+plt.savefig('barplots/st.eps', format='eps')
 plt.close()
 
 
-# Barplot of 2nd order indices
+# # Barplot of 2nd order indices
+# x_points = (0, 0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8)
+# plt.figure(figsize=(3.0, 6))
+# plt.gca().spines['top'].set_visible(False)
+# plt.gca().spines['right'].set_visible(False)
+# plt.grid(axis='y', linestyle='--', alpha=0.7)
+# plt.bar(x_points,
+#         (-0.02788179,  0.07228866,  0.03960758,  0.00295189, -0.00063416,  0.00097269,  0.00471581, 0.13214761,
+#          0.01748042, 0.05786848),
+#         yerr=(0.06506981, 0.06946727, 0.06807653, 0.06549036, 0.01147942, 0.01074953, 0.01052957, 0.0931521 , 0.06706305, 0.05786848),
+#         alpha=0.7,
+#         align='center',
+#         color='#4c72b0',
+#         edgecolor='#2A4D69',
+#         width=0.1,
+#         capsize=4)
+# plt.xticks(x_points,
+#            ('(prob_win_size, step_win_size)',
+#             '(prob_win_size, t_crit)',
+#             '(prob_win_size, prob_threshold)',
+#             '(prob_win_size, outlier_win_size)',
+#             '(step_win_size, t_crit)',
+#             '(step_win_size, prob_threshold)',
+#             '(step_win_size, outlier_win_size)',
+#             '(t_crit, prob_threshold)',
+#             '(t_crit, outlier_win_size)',
+#             '(prob_threshold, outlier_win_size)'),
+#            rotation=90,
+#            fontsize=14)
+# plt.ylim(-0.1, 0.25)
+# plt.yticks((-0.1, -0.05, 0, 0.05, 0.1, 0.15, 0.2, 0.25))
+# plt.tick_params(axis='y', labelsize=14)
+# plt.tight_layout()
+# plt.savefig('barplots/s2.png')
+# plt.close()
+
+# Horizontal barplot of 2nd order indices
+# Data points
 x_points = (0, 0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4, 1.6, 1.8)
-plt.figure(figsize=(3.0, 6))
+values = (-0.02788179,  0.07228866,  0.03960758,  0.00295189, -0.00063416,  0.00097269,  0.00471581, 0.13214761,
+          0.01748042, 0.05786848)
+yerr_values = (0.06506981, 0.06946727, 0.06807653, 0.06549036, 0.01147942, 0.01074953, 0.01052957, 0.0931521 , 0.06706305, 0.05786848)
+labels = ('(prob_win_size, step_win_size)',
+          '(prob_win_size, t_crit)',
+          '(prob_win_size, prob_threshold)',
+          '(prob_win_size, outlier_win_size)',
+          '(step_win_size, t_crit)',
+          '(step_win_size, prob_threshold)',
+          '(step_win_size, outlier_win_size)',
+          '(t_crit, prob_threshold)',
+          '(t_crit, outlier_win_size)',
+          '(prob_threshold, outlier_win_size)')
+
+# Create the figure with adjusted size
+plt.figure(figsize=(6, 3.0))  # Swap width and height to fit a horizontal plot
+
+# Customize the axis
 plt.gca().spines['top'].set_visible(False)
 plt.gca().spines['right'].set_visible(False)
-plt.grid(axis='y', linestyle='--', alpha=0.7)
-plt.bar(x_points,
-        (-0.02788179,  0.07228866,  0.03960758,  0.00295189, -0.00063416,  0.00097269,  0.00471581, 0.13214761,
-         0.01748042, 0.05786848),
-        yerr=(0.06506981, 0.06946727, 0.06807653, 0.06549036, 0.01147942, 0.01074953, 0.01052957, 0.0931521 , 0.06706305, 0.05786848),
-        alpha=0.7,
-        align='center',
-        color='#4c72b0',
-        edgecolor='#2A4D69',
-        width=0.1,
-        capsize=4)
-plt.xticks(x_points,
-           ('(prob_win_size, step_win_size)',
-            '(prob_win_size, t_crit)',
-            '(prob_win_size, prob_threshold)',
-            '(prob_win_size, outlier_win_size)',
-            '(step_win_size, t_crit)',
-            '(step_win_size, prob_threshold)',
-            '(step_win_size, outlier_win_size)',
-            '(t_crit, prob_threshold)',
-            '(t_crit, outlier_win_size)',
-            '(prob_threshold, outlier_win_size)'),
-           rotation=90,
-           fontsize=14)
-plt.ylim(-0.1, 0.25)
-plt.yticks((-0.1, -0.05, 0, 0.05, 0.1, 0.15, 0.2, 0.25))
-plt.tick_params(axis='y', labelsize=14)
+plt.grid(axis='x', linestyle='--', alpha=0.7)  # Use x-axis for gridlines
+
+# Create the horizontal bar plot using barh()
+plt.barh(x_points,
+         values,
+         xerr=yerr_values,
+         alpha=0.7,
+         align='center',
+         color='#4c72b0',
+         edgecolor='#2A4D69',
+         height=0.1,  # Control the height of horizontal bars
+         capsize=4)
+
+# Set the y-ticks and their labels
+plt.yticks(x_points, labels, fontsize=14)
+
+# Set x-tick labels for the value range
+plt.xlim(-0.1, 0.25)  # Swap ylim with xlim for horizontal plot
+plt.xticks((-0.1, -0.05, 0, 0.05, 0.1, 0.15, 0.2, 0.25), fontsize=14, rotation=90)
+
+# Show plot layout and save the image
 plt.tight_layout()
-plt.savefig('barplots/s2.png')
+plt.savefig('barplots/s2_horizontal.png')
+plt.savefig('barplots/s2_horizontal.eps', format='eps')
 plt.close()
