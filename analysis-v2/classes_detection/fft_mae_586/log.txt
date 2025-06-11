@@ -1,0 +1,6 @@
+Total number of forks: 5860
+HDBSCAN classification: [ -1  -1  -1 ... 214 214 214]
+Number of HDBSCAN-detected clusters: 263
+Number of HDBSCAN-detected outliers: 2662
+Silhouette score: 0.5877301277884016 (Euclidean), -0.17882303803648908 (cosine)
+Outlier rate: 0.4542662116040956Classification after K-means: [216 216 216 ... 214 214 214]

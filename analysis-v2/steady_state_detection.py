@@ -269,8 +269,9 @@ def get_compact_result(P: np.ndarray, warmup_end: int) -> dict:
 
     return results
 
-
+fig_idx = 0
 def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
+    global fig_idx
 
     data_len = len(data)
 
@@ -291,18 +292,24 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
     #return np.min(np.array([large_up, large_kernel_step_idx, small_up, small_kernel_step_idx])), timeseries_step
 
     # print(small_kernel_step_idx, large_kernel_step_idx, small_up, large_up)
-    # plt.figure()
-    # plt.plot(timeseries_step)
+    fig, ax1 = plt.subplots()
+    ax2 = ax1.twinx()
+
+
     # plt.title(f'Convolution with larger kernel')
     # plt.savefig('convolution_larger')
     # plt.close()
     #
     # plt.figure()
-    # plt.plot(timeseries_step2)
+    # plt.plot(timeseries_step2, label='convolution small')
     # plt.title(f'Convolution with smaller kernel')
     # plt.savefig('convolution_smaller')
     # plt.close()
     # exit(-1)
+
+    # plt.show()
+    # exit(-1)
+
     # If the step is detected in the very last sample of the series, we consider it non-existent
     if large_kernel_step_idx == len(data) - 1:
         large_kernel_step_idx = -1
@@ -339,7 +346,55 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
 
         # Difference of medians of windows around the detected "large step"
         large_diff = np.median(large_left_win) - np.median(large_right_win)
+        tmp_len = len(data[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)])
+        tmp_start = len(data[:max(large_kernel_step_idx - win_size, 0)])
+        ax1.grid(axis='y', linestyle='--', alpha=0.7)
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
+        ax1.tick_params(axis='both', which='both')
+        ax2.tick_params(axis='both', which='both')
+        ax2.set_yticks([])
+        line1 = ax1.scatter(range(tmp_len), data[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)], label='Timeseries', s=15)
+        line2, = ax2.plot(timeseries_step[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)], label='$(a_l * t)$', color='orange', lw=2.5)
+        print(np.median(data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, large_kernel_step_idx)
+        line3 = ax1.hlines(np.median(large_left_win), 0, max(large_kernel_step_idx - tmp_start, 0), color='r', label='Left window median', linestyle='--', lw=2.5)
+        line4 = ax1.hlines(np.median(large_right_win), max(large_kernel_step_idx - tmp_start, 0), tmp_len, color='magenta', label='Right window median', linestyle='--', lw=2.5)
 
+        ax1.tick_params(axis='both', labelsize=14)
+
+        ax1.set_ylabel('Time [s]', fontsize=14)
+        ax1.set_xlabel('Sample index', fontsize=14)
+        lines = (line1, line2, line3, line4)
+        labels = [l.get_label() for l in lines]
+        ax1.legend(lines, labels, loc='center right', fontsize=14)
+
+        # get the xticks, which are the numeric location of the ticks
+        xticks = ax1.get_xticks()
+
+        # get the xticks and convert the values in the array to str type
+        xticklabels = list(map(str, ax1.get_xticks()))
+
+        # update the string to be changed
+        tick_len = len(xticklabels)
+
+        tick_inc = (tmp_len/tick_len)
+        for i in range(tick_len):
+            xticklabels[i] = int(tmp_start + tick_inc*i)
+
+        # set the xticks and the labels
+        _ = ax1.set_xticks(xticks, xticklabels)
+
+
+        # ax2.legend(loc='upper center')
+        # ax1.hlines(np.median(large_left_win), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, color='r')
+        # ax1.hlines(np.median(large_right_win), large_kernel_step_idx + 1, min(large_kernel_step_idx + win_size + 1, data_len), color='r')
+        plt.tight_layout()
+        # plt.title(fig_idx)
+        # plt.show()
+        plt.savefig(f'plots/conv_illustrations/conv_{fig_idx}.eps', format='eps')
+        fig_idx += 1
 
 
         # Choose the step detected via "short kernel" as a default one
