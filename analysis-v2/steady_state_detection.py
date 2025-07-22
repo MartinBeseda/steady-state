@@ -273,10 +273,14 @@ fig_idx = 0
 def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
     global fig_idx
 
+    # Raw, non-shifted data
+    raw_data = data.copy()
+    mean_data = np.average(data)
+
     data_len = len(data)
 
     # Detect step in the data with convolution kernel spanning the whole domain
-    data -= np.average(data)
+    data -= mean_data
     step = np.hstack((np.ones(len(data)), -1 * np.ones(len(data))))
     timeseries_step = np.convolve(data, step, mode='valid')
     large_kernel_step_idx = np.argmin(timeseries_step) - 1
@@ -356,11 +360,11 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
         ax1.tick_params(axis='both', which='both')
         ax2.tick_params(axis='both', which='both')
         ax2.set_yticks([])
-        line1 = ax1.scatter(range(tmp_len), data[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)], label='Timeseries', s=15)
-        line2, = ax2.plot(timeseries_step[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)], label='$(a_l * t)$', color='orange', lw=2.5)
-        print(np.median(data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, large_kernel_step_idx)
-        line3 = ax1.hlines(np.median(large_left_win), 0, max(large_kernel_step_idx - tmp_start, 0), color='r', label='Left window median', linestyle='--', lw=2.5)
-        line4 = ax1.hlines(np.median(large_right_win), max(large_kernel_step_idx - tmp_start, 0), tmp_len, color='magenta', label='Right window median', linestyle='--', lw=2.5)
+        line1 = ax1.scatter(range(tmp_len), raw_data[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)], label='Timeseries', s=15)
+        line2, = ax2.plot(timeseries_step[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)] + mean_data, label='$(a_l * t)$', color='orange', lw=2.5)
+        # print(np.median(data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, large_kernel_step_idx)
+        line3 = ax1.hlines(np.median(large_left_win)+mean_data, 0, max(large_kernel_step_idx - tmp_start, 0), color='r', label='Left window median', linestyle='--', lw=2.5)
+        line4 = ax1.hlines(np.median(large_right_win)+mean_data, max(large_kernel_step_idx - tmp_start, 0), tmp_len, color='magenta', label='Right window median', linestyle='--', lw=2.5)
 
         ax1.tick_params(axis='both', labelsize=14)
 

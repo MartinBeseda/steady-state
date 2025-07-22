@@ -30,7 +30,7 @@ if __name__ == '__main__':
     # filenames = filenames[:-1]
 
     method = 'fft'
-    metrics = 'mae' #'cosine_distances' #'mae'
+    metrics = 'cosine_distances' #'mae'
     dirname = f'{method}_{metrics}_{len(filenames)}'
 
     if not os.path.exists(f'{dirname}'):
