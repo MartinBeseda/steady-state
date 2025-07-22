@@ -140,8 +140,8 @@ for i, e in enumerate(data_vittorio.data['main']):
         r_test.insert(batch)
         rtest_steady_idx = r_test.steady_state_start_point()
 
-    print(orig_clas_idx, new_clas_idx, sdm_steady_idx, ttest_steady_idx, rtest_steady_idx, ftest_steady_idx,
-          eb_steady_idx)
+    print(f'cpssd: {orig_clas_idx}, kpkssd: {new_clas_idx}, sdm: {sdm_steady_idx}, ttest: {ttest_steady_idx}, '
+          f'rtest: {rtest_steady_idx}, ftest: {ftest_steady_idx}, eb: {eb_steady_idx}')
 
     data_sum[series_key] = {'idxs': {'vittorio': e['value'],
                                      'michele': data_michele.getkey(e['keyname']),
