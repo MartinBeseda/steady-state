@@ -102,9 +102,9 @@ for i, e in enumerate(data_vittorio.data['main']):
     # print(e['value'], data_michele.getkey(e['keyname']), data_daniele.getkey(e['keyname']),
     #       data_luca.getkey(e['keyname']), data_martin.getkey(e['keyname']), orig_clas_idx, new_clas_idx)
 
-    # Detection via SDM
+    # Detection via SDM - using raw timeseries, without any preprocessing
     batch_size = 15
-    timeseries_batches = list(batched(timeseries, batch_size))
+    timeseries_batches = list(batched(timeseries1, batch_size))
 
     sdm = SlopeDetectionMethod(slope_crit=1e-8)
     sdm_steady_idx = None
@@ -140,8 +140,8 @@ for i, e in enumerate(data_vittorio.data['main']):
         r_test.insert(batch)
         rtest_steady_idx = r_test.steady_state_start_point()
 
-    print(f'cpssd: {orig_clas_idx}, kpkssd: {new_clas_idx}, sdm: {sdm_steady_idx}, ttest: {ttest_steady_idx}, '
-          f'rtest: {rtest_steady_idx}, ftest: {ftest_steady_idx}, eb: {eb_steady_idx}')
+    # print(f'cpssd: {orig_clas_idx}, kpkssd: {new_clas_idx}, sdm: {sdm_steady_idx}, ttest: {ttest_steady_idx}, '
+    #       f'rtest: {rtest_steady_idx}, ftest: {ftest_steady_idx}, eb: {eb_steady_idx}')
 
     data_sum[series_key] = {'idxs': {'vittorio': e['value'],
                                      'michele': data_michele.getkey(e['keyname']),
@@ -221,16 +221,26 @@ for i, e in enumerate(data_vittorio.data['main']):
 
     # Define your custom color palette
     colors = {
-        "orig": "#00A65C",  # Green
-        "new": "#D85C5C",  # Muted Red
-        "sdm": "#5C7CD8",  # Blue
-        "ttest": "#D8B75C",  # Mustard Yellow
-        "steady": "black"
+        'orig': '#D85C5C',  # red
+        'new': '#4c72b0',  # blue
+        'sdm': '#BFBFBF',  # gray
+        'ttest': '#55A868',  # green
+        'ftest': '#C44E52',  # dark red
+        'rtest': '#8172B3',  # purple
+        'eb': '#CCB974',  # goldenrod
+        'steady': '#64B5CD'
     }
 
     # Distinct line styles for greyscale clarity
     linestyles = {
-        "orig": "-", "new": "--", "sdm": "-.", "ttest": ":", "steady": (0, (1, 1))  # dotted
+        "orig": "-",  # solid
+        "new": "--",  # dashed
+        "sdm": "-.",  # dash-dot
+        "ttest": ":",  # dotted
+        "ftest": (0, (1, 1)),  # custom: very short dots
+        "rtest": (0, (3, 1, 1, 1)),  # custom: dash-dot-dot
+        "eb": (0, (5, 2)),  # custom: long dashes
+        'steady': (0, (2, 2, 8, 2))
     }
 
     # Begin plotting
@@ -249,7 +259,11 @@ for i, e in enumerate(data_vittorio.data['main']):
         "orig": idxs['cpssd'],
         "new": idxs['kbkssd'],
         "sdm": idxs['sdm'],
-        "ttest": idxs['ttest']
+        "ttest": idxs['ttest'],
+        'ftest': idxs['ftest'],
+        'rtest': idxs['rtest'],
+        'eb': idxs['eb'],
+        'steady': data_sum[e['keyname'][:-2]]['steady_idx']
     }
 
     ymin = min(series)
@@ -272,6 +286,7 @@ for i, e in enumerate(data_vittorio.data['main']):
     # Save figure
     plt.tight_layout()
     plt.savefig(f'plots/plot_{i}.png', bbox_inches='tight')
+    plt.savefig(f'plots/plot_{i}.eps', format='eps', bbox_inches='tight')
     plt.close()
 
     # Compute differences of results
@@ -343,21 +358,21 @@ for k, v in data_sum.items():
             no_unsteady_ttest_clustered += 1
         else:
             no_unsteady_ttest_scattered += 1
-    if v['idxs']['ftest'] == -1:
-        if v['clustered']:
-            no_unsteady_ftest_clustered += 1
-        else:
-            no_unsteady_ftest_scattered += 1
-    if v['idxs']['rtest'] == -1:
-        if v['clustered']:
-            no_unsteady_rtest_clustered += 1
-        else:
-            no_unsteady_rtest_scattered += 1
-    if v['idxs']['eb'] == -1:
-        if v['clustered']:
-            no_unsteady_eb_clustered += 1
-        else:
-            no_unsteady_eb_scattered += 1
+    # if v['idxs']['ftest'] == -1:
+    #     if v['clustered']:
+    #         no_unsteady_ftest_clustered += 1
+    #     else:
+    #         no_unsteady_ftest_scattered += 1
+    # if v['idxs']['rtest'] == -1:
+    #     if v['clustered']:
+    #         no_unsteady_rtest_clustered += 1
+    #     else:
+    #         no_unsteady_rtest_scattered += 1
+    # if v['idxs']['eb'] == -1:
+    #     if v['clustered']:
+    #         no_unsteady_eb_clustered += 1
+    #     else:
+    #         no_unsteady_eb_scattered += 1
 
 
 # Plot bar plots comparing numbers of incorrectly detected unsteady series
@@ -378,15 +393,15 @@ bars_new = plt.bar([2, 9],
                    #  tick_label=['Scattered', 'Clustered'],
                    color='#D85C5C',
                    edgecolor='#9E3D3D')
-bars_sdm = plt.bar([3, 10], [no_unsteady_sdm_scattered, no_unsteady_sdm_clustered])
-bars_ttest = plt.bar([4, 11], [no_unsteady_ttest_scattered, no_unsteady_ttest_clustered])
-bars_ftest = plt.bar([5, 12], [no_unsteady_ftest_scattered, no_unsteady_ftest_clustered])
-bars_rtest = plt.bar([6, 13], [no_unsteady_rtest_scattered, no_unsteady_rtest_clustered])
-bars_eb = plt.bar([7, 14], [no_unsteady_eb_scattered, no_unsteady_eb_clustered])
+# bars_sdm = plt.bar([3, 10], [no_unsteady_sdm_scattered, no_unsteady_sdm_clustered])
+# bars_ttest = plt.bar([4, 11], [no_unsteady_ttest_scattered, no_unsteady_ttest_clustered])
+# bars_ftest = plt.bar([5, 12], [no_unsteady_ftest_scattered, no_unsteady_ftest_clustered])
+# bars_rtest = plt.bar([6, 13], [no_unsteady_rtest_scattered, no_unsteady_rtest_clustered])
+# bars_eb = plt.bar([7, 14], [no_unsteady_eb_scattered, no_unsteady_eb_clustered])
 
 plt.xticks(ticks=(1.5,3.5), labels=('Scattered', 'Clustered'))
-plt.legend([bars_orig, bars_new, bars_sdm, bars_ttest, bars_ftest, bars_rtest, bars_eb],
-           ['CP-SSD', 'KB-KSSD', 'SDM', 't-test', 'f-test', 'r-test'], fontsize=14)
+plt.legend([bars_orig, bars_new],#, bars_sdm, bars_ttest, bars_ftest, bars_rtest, bars_eb],
+           ['CP-SSD', 'KB-KSSD'], fontsize=14)#, 'SDM', 't-test', 'f-test', 'r-test'], fontsize=14)
 plt.savefig('barplots/no_unsteady.png')
 plt.savefig('barplots/no_unsteady.eps', format='eps')
 plt.close()
@@ -416,12 +431,28 @@ no_agreements_ttest = 0
 false_positives_ttest = 0
 false_negatives_ttest = 0
 
+no_agreements_ftest = 0
+false_positives_ftest = 0
+false_negatives_ftest = 0
+
+no_agreements_rtest = 0
+false_positives_rtest = 0
+false_negatives_rtest = 0
+
+no_agreements_eb = 0
+false_positives_eb = 0
+false_negatives_eb = 0
+
 n_total_agreements = 0
 n_method_agreements = 0
 n_std = 0
 n_std_new = 0
 n_std_orig = 0
 n_std_sdm = 0
+n_std_ttest = 0
+n_std_ftest = 0
+n_std_rtest = 0
+n_std_eb = 0
 
 for e in larger_data['main']:
     fork_name, fork_idx = e['keyname'].rsplit('_', 1)
@@ -480,35 +511,186 @@ for e in larger_data['main']:
     else:
         false_negatives_new += 1
 
+    # Detection via SDM - using raw timeseries, without any preprocessing
+    batch_size = 15
+    timeseries_batches = list(batched(timeseries1, batch_size))
+
+    sdm = SlopeDetectionMethod(slope_crit=1e-8)
+    sdm_steady_idx = None
+    for j, batch in enumerate(timeseries_batches):
+        sdm.insert(batch)
+        sdm_steady_idx = sdm.steady_state_start_point()
+
+    # Detection via t-test
+    t_test = TTest(T_crit=0.009)
+    ttest_steady_idx = None
+    for j, batch in enumerate(timeseries_batches):
+        t_test.insert(batch)
+        ttest_steady_idx = t_test.steady_state_start_point()
+
+    # Detection via Exact Bayes
+    eb = ExactBayes(m=20, s_0=1e-8)
+    eb_steady_idx = None
+    for j, batch in enumerate(timeseries_batches):
+        eb.insert(batch)
+        eb_steady_idx = eb.steady_state_start_point()
+
+    # Detection via F-test
+    f_test = FTest(F_crit=1.2)
+    ftest_steady_idx = None
+    for j, batch in enumerate(timeseries_batches):
+        f_test.insert(batch)
+        ftest_steady_idx = f_test.steady_state_start_point()
+
+    # Detection via R-test
+    r_test = RTest(R_crit=1.2, lambda1=0.03, lambda2=0.05, lambda3=0.05)
+    rtest_steady_idx = None
+    for j, batch in enumerate(timeseries_batches):
+        r_test.insert(batch)
+        rtest_steady_idx = r_test.steady_state_start_point()
+
     # Number of agreements, etc. for SDM method
     sdm_steady = True if sdm_steady_idx > -1 else False
     if sdm_steady > -1:
         n_std_sdm += 1
-    if is_steady == sdm_steady_idx:
+    if is_steady == sdm_steady:
         no_agreements_sdm += 1
     elif not is_steady and sdm_steady_idx:
         false_positives_sdm += 1
     else:
         false_negatives_sdm += 1
 
+    ttest_steady = True if ttest_steady_idx > -1 else False
+    if ttest_steady > -1:
+        n_std_ttest += 1
+    if is_steady == ttest_steady:
+        no_agreements_ttest += 1
+    elif not is_steady and ttest_steady_idx:
+        false_positives_ttest += 1
+    else:
+        false_negatives_ttest += 1
 
+    rtest_steady = True if rtest_steady_idx > -1 else False
+    if rtest_steady > -1:
+        n_std_ttest += 1
+    if is_steady == rtest_steady:
+        no_agreements_ttest += 1
+    elif not is_steady and rtest_steady_idx:
+        false_positives_rtest += 1
+    else:
+        false_negatives_rtest += 1
+
+    ttest_steady = True if ttest_steady_idx > -1 else False
+    if ttest_steady > -1:
+        n_std_ttest += 1
+    if is_steady == ttest_steady:
+        no_agreements_ttest += 1
+    elif not is_steady and ttest_steady_idx:
+        false_positives_ttest += 1
+    else:
+        false_negatives_ttest += 1
+
+    ftest_steady = True if ftest_steady_idx > -1 else False
+    if ftest_steady > -1:
+        n_std_ftest += 1
+    if is_steady == ftest_steady:
+        no_agreements_ftest += 1
+    elif not is_steady and ftest_steady_idx:
+        false_positives_ftest += 1
+    else:
+        false_negatives_ftest += 1
+
+    rtest_steady = True if rtest_steady_idx > -1 else False
+    if rtest_steady > -1:
+        n_std_rtest += 1
+    if is_steady == rtest_steady:
+        no_agreements_rtest += 1
+    elif not is_steady and rtest_steady_idx:
+        false_positives_rtest += 1
+    else:
+        false_negatives_rtest += 1
+
+    eb_steady = True if eb_steady_idx > -1 else False
+    if eb_steady > -1:
+        n_std_eb += 1
+    if is_steady == eb_steady:
+        no_agreements_eb += 1
+    elif not is_steady and eb_steady_idx:
+        false_positives_eb += 1
+    else:
+        false_negatives_eb += 1
 
     # Both methods and the ground truth agree with each other
-    if is_steady == new_clas_idx == orig_classification == sdm_steady:
+    if is_steady == new_clas_idx == orig_classification:
         n_total_agreements += 1
 
     # Both methods agree with each other, but not with the ground truth
-    if (is_steady != new_clas_idx) and (new_clas_idx == orig_classification == sdm_steady):
+    if (is_steady != new_clas_idx) and (new_clas_idx == orig_classification):
         n_method_agreements += 1
 
 print(n_std, n_std_orig, n_std_new, n_std_sdm)
-print(no_agreements_orig, no_agreements_new, no_agreements_sdm)
+print(no_agreements_orig, no_agreements_new, no_agreements_sdm, no_agreements_ttest)
 print(false_positives_orig, false_negatives_orig, false_positives_new, false_negatives_new)
 print(n_total_agreements, n_method_agreements)
 
+# Plot number of agreements with the larger data set for all the compared methods
 plt.figure()
+values = [0.75, 0.85, 0.65, 0.80, 0.70, 0.90, 0.78]
 
+# Custom colors and edgecolors
+fill_colors = [
+    '#D85C5C',  # red
+    '#4c72b0',  # blue
+    '#BFBFBF',  # gray
+    '#55A868',  # green
+    '#C44E52',  # dark red
+    '#8172B3',  # purple
+    '#CCB974',  # goldenrod
+]
+
+edge_colors = [
+    '#9E3D3D',  # red edge
+    '#2A4D69',  # blue edge
+    '#7F7F7F',  # gray edge
+    '#2C6B4D',  # green edge
+    '#872529',  # dark red edge
+    '#4B3D72',  # purple edge
+    '#7A653E',  # goldenrod edge
+]
+hatches = ['/', '\\', 'x', '.', '-', '*', 'o']
+
+# Create bar plot
+fig, ax = plt.subplots(figsize=(8, 6))
+bars = ax.bar(['CP-SSD', 'KB-KSSD', 'SDM', 't-test', 'F-test', 'R-test', 'ExactBayes'],
+              [no_agreements_orig, no_agreements_new, no_agreements_sdm, no_agreements_ttest, no_agreements_ftest,
+               no_agreements_rtest, no_agreements_eb],
+              color=fill_colors,
+              edgecolor=edge_colors,
+              linewidth=1.5)
+
+# Apply hatches
+for bar, hatch in zip(bars, hatches):
+    bar.set_hatch(hatch)
+
+# Labels and title
+ax.set_ylabel('Agreements')
+ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+# Annotate values
+for bar in bars:
+    height = bar.get_height()
+    ax.annotate(f'{height:.2f}',
+                xy=(bar.get_x() + bar.get_width() / 2, height),
+                xytext=(0, 5),
+                textcoords="offset points",
+                ha='center', va='bottom')
+
+plt.tight_layout()
+plt.savefig('barplots/agreements_all.eps', format='eps')
+plt.savefig('barplots/agreements_all.png')
+plt.show()
 plt.close()
+exit(-1)
 
 # Detailed number of agreements and false positives / negatives for CP-SSD and KB-KSSD
 fig, ax = plt.subplots()
