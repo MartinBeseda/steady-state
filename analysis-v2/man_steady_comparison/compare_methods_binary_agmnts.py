@@ -23,6 +23,10 @@ import sklearn.cluster
 from scipy.stats import norm
 from scipy.optimize import differential_evolution
 
+from statsmodels.stats.contingency_tables import cochrans_q, mcnemar
+from statsmodels.stats.multitest import multipletests
+from sklearn.metrics import confusion_matrix
+
 # # Are the data labeled OK? They are - the following code checks it.
 # for f in os.listdir('../man_steady_indices/data_st'):
 #     loc_series = json.load(open(f'../man_steady_indices/data_st/{f}'))
@@ -53,12 +57,6 @@ orig_diffs_clustered = []
 orig_diffs_scattered = []
 new_diffs_clustered = []
 new_diffs_scattered = []
-sdm_diffs_clustered = []
-sdm_diffs_scattered = []
-ttest_diffs_clustered = []
-ttest_diffs_scattered = []
-rtest_diffs_clustered = []
-rtest_diffs_scattered = []
 
 # Structure containing all the data including manual labeling and both automatic detections
 data_sum = {}
@@ -77,442 +75,6 @@ t_crit = 4
 step_win_size = 70
 prob_threshold = 0.95
 median_kernel_size = 1
-
-print(f'Number of steady timeseries: {len(list(data_vittorio.data['main']))}')
-
-for i, e in enumerate(data_vittorio.data['main']):
-    # Remove the bad filename suffix and load the filenames with fork indices
-    fname, fork_idx = e['keyname'].rsplit('_', 1)[0].rsplit('_', 1)
-    fork_idx = int(fork_idx)
-    series_key = f'{fname}_{fork_idx}'
-
-    # The original automatic classification
-    orig_clas_idx = json.load(open(f'orig_classification/{fname}'))['steady_state_starts'][fork_idx]
-
-    # Load the corresponding timeseries
-    timeseries = json.load(open(f'../compare_configurations/data_st/{fname}_{fork_idx}'))
-    timeseries1 = timeseries.copy()
-    timeseries, _ = ssd.substitute_outliers_percentile(timeseries,
-                                                       percentile_threshold_upper=98,
-                                                       percentile_threshold_lower=2,
-                                                       window_size=outliers_window_size)
-    timeseries2 = timeseries.copy()
-    #timeseries = ssi.medfilt(timeseries, kernel_size=3)
-
-    # Apply the new approach
-    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=prob_win_size, t_crit=t_crit,
-                                            step_win_size=step_win_size, medfilt_kernel_size=median_kernel_size,
-                                            plot_fig_idx= i #if i in [0,1,2,3] else None#[67, 262, 195] else None,
-                                            )
-    res = ssd.get_compact_result(P, warmup_end)
-    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=prob_threshold, min_steady_length=1)
-
-    # print(e['value'], data_michele.getkey(e['keyname']), data_daniele.getkey(e['keyname']),
-    #       data_luca.getkey(e['keyname']), data_martin.getkey(e['keyname']), orig_clas_idx, new_clas_idx)
-
-    # Detection via SDM - using raw timeseries, without any preprocessing
-    batch_size = 15
-    timeseries_batches = list(batched(timeseries1, batch_size))
-
-    sdm = SlopeDetectionMethod(slope_crit=1e-8)
-    sdm_steady_idx = None
-    for j, batch in enumerate(timeseries_batches):
-        sdm.insert(batch)
-        sdm_steady_idx = sdm.steady_state_start_point()
-
-    # Detection via t-test
-    t_test = TTest(T_crit=0.009)
-    ttest_steady_idx = None
-    for j, batch in enumerate(timeseries_batches):
-        t_test.insert(batch)
-        ttest_steady_idx = t_test.steady_state_start_point()
-
-    # # Detection via Exact Bayes
-    # eb = ExactBayes(m=20, s_0=1e-8)
-    # eb_steady_idx = None
-    # for j, batch in enumerate(timeseries_batches):
-    #     eb.insert(batch)
-    #     eb_steady_idx = eb.steady_state_start_point()
-    #
-    # # Detection via F-test
-    # f_test = FTest(F_crit=1.2)
-    # ftest_steady_idx = None
-    # for j, batch in enumerate(timeseries_batches):
-    #     f_test.insert(batch)
-    #     ftest_steady_idx = f_test.steady_state_start_point()
-
-    # Detection via R-test
-    r_test = RTest(R_crit=1.2, lambda1=0.03, lambda2=0.05, lambda3=0.05)
-    rtest_steady_idx = None
-    for j, batch in enumerate(timeseries_batches):
-        r_test.insert(batch)
-        rtest_steady_idx = r_test.steady_state_start_point()
-
-    # print(f'cpssd: {orig_clas_idx}, kpkssd: {new_clas_idx}, sdm: {sdm_steady_idx}, ttest: {ttest_steady_idx}, '
-    #       f'rtest: {rtest_steady_idx}, ftest: {ftest_steady_idx}, eb: {eb_steady_idx}')
-
-    data_sum[series_key] = {'idxs': {'vittorio': e['value'],
-                                     'michele': data_michele.getkey(e['keyname']),
-                                     'daniele': data_daniele.getkey(e['keyname']),
-                                     'luca': data_luca.getkey(e['keyname']),
-                                     'martin': data_martin.getkey(e['keyname']),
-                                     'cpssd': orig_clas_idx,
-                                     'kbkssd': new_clas_idx,
-                                     'sdm': sdm_steady_idx,
-                                     'ttest': ttest_steady_idx,
-                                     # 'ftest': ftest_steady_idx,
-                                     'rtest': rtest_steady_idx,
-                                     # 'eb': eb_steady_idx,},
-                                     },
-                            'series': timeseries1}
-
-    # Check the correctness of the loaded timeseries
-    ref_series = json.load(open(f'../../data/timeseries/all/{fname}'))[fork_idx]
-    ref_idx = json.load(open(f'../../data/classification/{fname}'))['steady_state_starts'][fork_idx]
-
-    assert ref_series == data_sum[series_key]['series']
-    assert ref_idx == data_sum[series_key]['idxs']['cpssd']
-
-    # Recognize the SSD reference point
-    # If there's cluster (min 3 points), then take the middle point or the 3rd point (if there are 4 in the cluster)
-    # If there's no cluster, take the last point, as the most conservative one
-    dbscan_inst = sklearn.cluster.DBSCAN(eps=50, min_samples=3)
-    man_labels = np.array([data_sum[series_key]['idxs']['vittorio'], data_sum[series_key]['idxs']['michele'],
-                           data_sum[series_key]['idxs']['daniele'], data_sum[series_key]['idxs']['luca'],
-                           data_sum[series_key]['idxs']['martin']])
-    cluster_idxs = dbscan_inst.fit(np.array(man_labels).reshape(-1, 1)).labels_
-
-    scattered = False
-    if not (cluster_idxs > -1).any():
-        scattered = True
-        # continue
-        data_sum[series_key]['steady_idx'] = sorted(man_labels)[-3]#max(man_labels)#
-        data_sum[series_key]['clustered'] = False
-    elif sum(cluster_idxs > -1) == 4:
-        data_sum[series_key]['steady_idx'] = man_labels[sorted(np.where(cluster_idxs > -1)[0])[-2]]
-        data_sum[series_key]['clustered'] = True
-
-    else:
-        #continue
-        data_sum[series_key]['steady_idx'] = int(np.median(man_labels[np.where(cluster_idxs > -1)[0]]))
-        data_sum[series_key]['clustered'] = True
-
-    # # Plot all the data with detected indices
-    # plt.figure()
-    # plt.title(e['keyname'])
-    # plt.plot(data_sum[e['keyname'][:-2]]['series'])
-    # plt.vlines([data_sum[e['keyname'][:-2]]['idxs']['cpssd'], data_sum[e['keyname'][:-2]]['idxs']['kbkssd'],
-    #             data_sum[e['keyname'][:-2]]['idxs']['sdm'], data_sum[e['keyname'][:-2]]['idxs']['ttest']],
-    #            min(data_sum[e['keyname'][:-2]]['series']),
-    #            max(data_sum[e['keyname'][:-2]]['series']),
-    #            colors=['green','#D85C5C', '#5C7CD8', '#D8B75C'],
-    #            label=['orig', 'new', 'sdm', 'ttest'])
-    # plt.vlines([data_sum[e['keyname'][:-2]]['steady_idx']],
-    #            min(data_sum[e['keyname'][:-2]]['series']),
-    #            max(data_sum[e['keyname'][:-2]]['series']),
-    #            colors=['black'],
-    #            label='steady idx')
-    # plt.savefig(f'plots/plot_{i}.png')
-    # plt.close()
-
-    # Update matplotlib settings for compact and readable plots
-    plt.rcParams.update({
-        "font.size": 8,
-        "axes.labelsize": 8,
-        "axes.titlesize": 9,
-        "xtick.labelsize": 7,
-        "ytick.labelsize": 7,
-        "legend.fontsize": 7,
-        "lines.linewidth": 1.5,
-        "axes.linewidth": 0.8,
-        "pdf.fonttype": 42,  # Vector fonts
-    })
-
-    # Define your custom color palette
-    colors = {
-        'orig': '#D85C5C',  # red
-        'new': '#4c72b0',  # blue
-        'sdm': '#BFBFBF',  # gray
-        'ttest': '#55A868',  # green
-        'ftest': '#C44E52',  # dark red
-        'rtest': '#8172B3',  # purple
-        'eb': '#CCB974',  # goldenrod
-        'steady': 'black'
-    }
-
-    # Distinct line styles for greyscale clarity
-    linestyles = {
-        "orig": "-",  # solid
-        "new": "--",  # dashed
-        "sdm": "-.",  # dash-dot
-        "ttest": ":",  # dotted
-        # "ftest": (0, (1, 1)),  # custom: very short dots
-        # "rtest": (0, (3, 1, 1, 1)),  # custom: dash-dot-dot
-        # "eb": (0, (5, 2)),  # custom: long dashes
-        'steady': (0, (2, 2, 8, 2))
-    }
-
-    # Begin plotting
-    plt.figure(figsize=(3.5, 2.2), dpi=300)
-
-    # Title
-    # plt.title(e['keyname'])
-
-    # Plot the main time series
-    series = data_sum[e['keyname'][:-2]]['series']
-    plt.plot(series, color='gray', label='series')
-
-    # Vertical lines
-    idxs = data_sum[e['keyname'][:-2]]['idxs']
-    vline_data = {
-        "orig": idxs['cpssd'],
-        "new": idxs['kbkssd'],
-        "sdm": idxs['sdm'],
-        "ttest": idxs['ttest'],
-        # 'ftest': idxs['ftest'],
-        # 'rtest': idxs['rtest'],
-        # 'eb': idxs['eb'],
-        # 'steady': data_sum[e['keyname'][:-2]]['steady_idx']
-    }
-
-    ymin = min(series)
-    ymax = max(series)
-
-    for key, idx in vline_data.items():
-        plt.axvline(idx, color=colors[key], linestyle=linestyles[key], linewidth=1.5, label=key)
-
-    # Steady index
-    steady_idx = data_sum[e['keyname'][:-2]]['steady_idx']
-    plt.axvline(steady_idx, color=colors["steady"], linestyle=linestyles["steady"], linewidth=1.2, label='JAGT')
-
-    # Add axis labels
-    plt.xlabel("Sample index")
-    plt.ylabel("Time [s]")
-
-    # Legend
-    plt.legend(loc='upper right', frameon=False)
-
-    # Save figure
-    plt.tight_layout()
-    plt.savefig(f'plots/plot_{i}.png', bbox_inches='tight')
-    plt.savefig(f'plots/plot_{i}.eps', format='eps', bbox_inches='tight')
-    plt.close()
-
-    # Compute differences of results
-    if -1 not in data_sum[series_key]['idxs'].values():
-        if scattered:
-            orig_diffs_scattered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['cpssd'])
-            new_diffs_scattered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['kbkssd'])
-            sdm_diffs_scattered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['sdm'])
-            ttest_diffs_scattered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['ttest'])
-            rtest_diffs_scattered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['rtest'])
-        else:
-            orig_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['cpssd'])
-            new_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['kbkssd'])
-            sdm_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['sdm'])
-            ttest_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['ttest'])
-            rtest_diffs_clustered.append(data_sum[series_key]['steady_idx'] - data_sum[series_key]['idxs']['rtest'])
-
-    pred_abs_diffs.append(abs(data_sum[series_key]['idxs']['cpssd']) - abs(data_sum[series_key]['idxs']['kbkssd']))
-
-# Compute the Manhattan metric of errors for both clustered and scattered GT indices
-manhattan_new_clust = sum([abs(e) for e in new_diffs_clustered])
-manhattan_orig_clust = sum([abs(e) for e in orig_diffs_clustered])
-manhattan_new_scat = sum([abs(e) for e in new_diffs_scattered])
-manhattan_orig_scat = sum([abs(e) for e in orig_diffs_scattered])
-manhattan_sdm_clust = sum([abs(e) for e in sdm_diffs_clustered])
-manhattan_sdm_scat = sum([abs(e) for e in sdm_diffs_scattered])
-manhattan_ttest_clust = sum([abs(e) for e in ttest_diffs_clustered])
-manhattan_ttest_scat = sum([abs(e) for e in ttest_diffs_scattered])
-manhattan_rtest_clust = sum([abs(e) for e in rtest_diffs_clustered])
-manhattan_rtest_scat = sum([abs(e) for e in rtest_diffs_scattered])
-
-print(f'Manhattan metric:')
-print(f'CP-SSD: clust {manhattan_orig_clust}, scat {manhattan_orig_scat}, total {manhattan_orig_clust + 
-                                                                                 manhattan_orig_scat}')
-print(f'KB-KSSD: clust {manhattan_new_clust}, scat {manhattan_new_scat}, total {manhattan_new_clust + 
-                                                                                 manhattan_new_scat}')
-print(f'SDM: clust {manhattan_sdm_clust}, scat {manhattan_sdm_scat}, total {manhattan_sdm_clust + manhattan_sdm_scat}')
-print(f't-test: clust {manhattan_ttest_clust}, scat {manhattan_ttest_scat}, total {manhattan_ttest_clust + 
-                                                                                   manhattan_ttest_scat}')
-print(f'R-test: clust {manhattan_rtest_clust}, scat {manhattan_rtest_scat}, total {manhattan_rtest_clust + 
-                                                                                   manhattan_rtest_scat}')
-
-# Sample data for 5 methods
-methods = ['CP-SSD', 'KB-KSSD', 'SDM', 't-test']#, 'R-test']
-property_1 = [manhattan_orig_clust, manhattan_new_clust, manhattan_sdm_clust, manhattan_ttest_clust] #,manhattan_rtest_clust]
-property_2 = [manhattan_orig_scat, manhattan_new_scat, manhattan_sdm_scat, manhattan_ttest_scat] #, manhattan_rtest_scat]
-total = [p1 + p2 for p1, p2 in zip(property_1, property_2)]
-
-# Styling
-fill_colors = ['#D85C5C', '#4c72b0', '#BFBFBF', '#55A868'] #, '#C44E52']
-edge_colors = ['#9E3D3D', '#2A4D69', '#7F7F7F', '#2C6B4D'] #, '#872529']
-
-hatch_1 = '/'   # For property_1
-hatch_2 = '\\'  # For property_2
-
-# X positions
-x = np.arange(len(methods))
-
-# Width settings (wider + tighter grouping)
-prop_bar_width = 0.4
-gap_between_props = 0.01  # minimal space between property bars
-total_bar_width = prop_bar_width * 2 + gap_between_props + 0.05  # slightly wider than both properties
-
-fig, ax = plt.subplots(figsize=(6, 6))
-
-# Plot total bars in the background
-for i in range(len(methods)):
-    ax.bar(x[i], total[i],
-           width=total_bar_width,
-           color=fill_colors[i],
-           edgecolor=edge_colors[i],
-           zorder=0)
-
-# Plot property bars directly side-by-side (tight layout)
-for i in range(len(methods)):
-    # Property 1 (left)
-    ax.bar(x[i] - (prop_bar_width / 2 + gap_between_props / 2), property_1[i],
-           width=prop_bar_width,
-           color='white',
-           edgecolor=edge_colors[i],
-           hatch=hatch_1,
-           zorder=2,
-           label='Clustered idxs' if i == 0 else "")
-
-    # Property 2 (right)
-    ax.bar(x[i] + (prop_bar_width / 2 + gap_between_props / 2), property_2[i],
-           width=prop_bar_width,
-           color='white',
-           edgecolor=edge_colors[i],
-           hatch=hatch_2,
-           zorder=2,
-           label='Scattered idxs' if i == 0 else "")
-
-# Axis and grid formatting
-ax.set_xticks(x)
-ax.set_xticklabels(methods)
-ax.set_ylabel("Manhattan distance to (steady) JAGT")
-# ax.set_title("Compact Bar Plot: Properties vs. Total")
-ax.grid(True, axis='y', linestyle='--', alpha=0.4)
-
-# Custom legend
-legend_elements = [
-    plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor='black', hatch=hatch_1,
-                  label='Clustered idxs'),
-    plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor='black', hatch=hatch_2,
-                  label='Scattered idxs'),
-    plt.Rectangle((0, 0), 1, 1, facecolor='gray', edgecolor='black', label='Total (Summation)')
-]
-ax.legend(handles=legend_elements)
-
-plt.tight_layout()
-plt.savefig('barplots/manhattan_errs_all.png')
-plt.savefig('barplots/manhattan_errs_all.eps', format='eps')
-plt.close()
-
-exit(-1)
-
-# print(scipy.stats.wilcoxon(new_diffs_clustered,orig_diffs_clustered))
-# print(scipy.stats.wilcoxon(orig_diffs_scattered,new_diffs_scattered))
-# print(scipy.stats.ttest_rel(new_diffs_clustered,orig_diffs_clustered))
-# print(scipy.stats.ttest_rel(orig_diffs_scattered,new_diffs_scattered))
-# print(scipy.stats.shapiro(new_diffs_clustered))
-# print(scipy.stats.shapiro(orig_diffs_clustered))
-# print(scipy.stats.shapiro(new_diffs_scattered))
-# print(scipy.stats.shapiro(orig_diffs_scattered))
-# exit(-1)
-
-# No. unsteady series detected
-no_unsteady_orig_scattered = 0
-no_unsteady_orig_clustered = 0
-no_unsteady_new_scattered = 0
-no_unsteady_new_clustered = 0
-
-no_unsteady_sdm_scattered = 0
-no_unsteady_sdm_clustered = 0
-no_unsteady_ttest_scattered = 0
-no_unsteady_ttest_clustered = 0
-no_unsteady_ftest_scattered = 0
-no_unsteady_ftest_clustered = 0
-no_unsteady_rtest_scattered = 0
-no_unsteady_rtest_clustered = 0
-no_unsteady_eb_scattered = 0
-no_unsteady_eb_clustered = 0
-
-for k, v in data_sum.items():
-    if v['idxs']['cpssd'] == -1:
-        if v['clustered']:
-            no_unsteady_orig_clustered += 1
-        else:
-            no_unsteady_orig_scattered += 1
-    if v['idxs']['kbkssd'] == -1:
-        if v['clustered']:
-            no_unsteady_new_clustered += 1
-        else:
-            no_unsteady_new_scattered += 1
-    if v['idxs']['sdm'] == -1:
-        if v['clustered']:
-            no_unsteady_sdm_clustered += 1
-        else:
-            no_unsteady_sdm_scattered += 1
-    if v['idxs']['ttest'] == -1:
-        if v['clustered']:
-            no_unsteady_ttest_clustered += 1
-        else:
-            no_unsteady_ttest_scattered += 1
-    # if v['idxs']['ftest'] == -1:
-    #     if v['clustered']:
-    #         no_unsteady_ftest_clustered += 1
-    #     else:
-    #         no_unsteady_ftest_scattered += 1
-    # if v['idxs']['rtest'] == -1:
-    #     if v['clustered']:
-    #         no_unsteady_rtest_clustered += 1
-    #     else:
-    #         no_unsteady_rtest_scattered += 1
-    # if v['idxs']['eb'] == -1:
-    #     if v['clustered']:
-    #         no_unsteady_eb_clustered += 1
-    #     else:
-    #         no_unsteady_eb_scattered += 1
-
-
-# Plot bar plots comparing numbers of incorrectly detected unsteady series
-# print(no_unsteady_orig, no_unsteady_new)
-plt.figure()
-plt.gca().spines['top'].set_visible(False)
-plt.gca().spines['right'].set_visible(False)
-plt.grid(axis='y', linestyle='--', alpha=0.7)
-# plt.title('No. unsteady series detected')
-plt.tick_params(axis='both', labelsize=14)
-bars_orig = plt.bar([1, 8],
-                    [no_unsteady_orig_scattered, no_unsteady_orig_clustered],
-                    #    tick_label=['Scattered', 'Clustered'],
-                    color='#4c72b0',
-                    edgecolor='#2A4D69')
-bars_new = plt.bar([2, 9],
-                   [no_unsteady_new_scattered, no_unsteady_new_clustered],
-                   #  tick_label=['Scattered', 'Clustered'],
-                   color='#D85C5C',
-                   edgecolor='#9E3D3D')
-# bars_sdm = plt.bar([3, 10], [no_unsteady_sdm_scattered, no_unsteady_sdm_clustered])
-# bars_ttest = plt.bar([4, 11], [no_unsteady_ttest_scattered, no_unsteady_ttest_clustered])
-# bars_ftest = plt.bar([5, 12], [no_unsteady_ftest_scattered, no_unsteady_ftest_clustered])
-# bars_rtest = plt.bar([6, 13], [no_unsteady_rtest_scattered, no_unsteady_rtest_clustered])
-# bars_eb = plt.bar([7, 14], [no_unsteady_eb_scattered, no_unsteady_eb_clustered])
-
-plt.xticks(ticks=(1.5,3.5), labels=('Scattered', 'Clustered'))
-plt.legend([bars_orig, bars_new],#, bars_sdm, bars_ttest, bars_ftest, bars_rtest, bars_eb],
-           ['CP-SSD', 'KB-KSSD'], fontsize=14)#, 'SDM', 't-test', 'f-test', 'r-test'], fontsize=14)
-plt.savefig('barplots/no_unsteady.png')
-plt.savefig('barplots/no_unsteady.eps', format='eps')
-plt.close()
-
-print(f'Number of false negatives: {no_unsteady_orig_scattered, no_unsteady_orig_clustered, no_unsteady_new_scattered,
-no_unsteady_new_clustered, no_unsteady_sdm_scattered, no_unsteady_sdm_clustered, no_unsteady_ttest_scattered,
-no_unsteady_ttest_clustered}')
-
 
 # Plot the number of steadiness detections on larger dataset
 larger_data = json.load(open('benchmark_database_binary.json'))
@@ -556,6 +118,10 @@ n_std_ttest = 0
 n_std_ftest = 0
 n_std_rtest = 0
 n_std_eb = 0
+
+# Binary classification
+jagt_bin = []
+methods_bin = [list() for _ in range(5)]
 
 for e in larger_data['main']:
     fork_name, fork_idx = e['keyname'].rsplit('_', 1)
@@ -631,19 +197,19 @@ for e in larger_data['main']:
         t_test.insert(batch)
         ttest_steady_idx = t_test.steady_state_start_point()
 
-    # Detection via Exact Bayes
-    eb = ExactBayes(m=20, s_0=1e-8)
-    eb_steady_idx = None
-    for j, batch in enumerate(timeseries_batches):
-        eb.insert(batch)
-        eb_steady_idx = eb.steady_state_start_point()
+    # # Detection via Exact Bayes
+    # eb = ExactBayes(m=20, s_0=1e-8)
+    # eb_steady_idx = None
+    # for j, batch in enumerate(timeseries_batches):
+    #     eb.insert(batch)
+    #     eb_steady_idx = eb.steady_state_start_point()
 
-    # Detection via F-test
-    f_test = FTest(F_crit=1.2)
-    ftest_steady_idx = None
-    for j, batch in enumerate(timeseries_batches):
-        f_test.insert(batch)
-        ftest_steady_idx = f_test.steady_state_start_point()
+    # # Detection via F-test
+    # f_test = FTest(F_crit=1.2)
+    # ftest_steady_idx = None
+    # for j, batch in enumerate(timeseries_batches):
+    #     f_test.insert(batch)
+    #     ftest_steady_idx = f_test.steady_state_start_point()
 
     # Detection via R-test
     r_test = RTest(R_crit=1.2, lambda1=0.03, lambda2=0.05, lambda3=0.05)
@@ -675,36 +241,6 @@ for e in larger_data['main']:
 
     rtest_steady = True if rtest_steady_idx > -1 else False
     if rtest_steady > -1:
-        n_std_ttest += 1
-    if is_steady == rtest_steady:
-        no_agreements_ttest += 1
-    elif not is_steady and rtest_steady_idx:
-        false_positives_rtest += 1
-    else:
-        false_negatives_rtest += 1
-
-    ttest_steady = True if ttest_steady_idx > -1 else False
-    if ttest_steady > -1:
-        n_std_ttest += 1
-    if is_steady == ttest_steady:
-        no_agreements_ttest += 1
-    elif not is_steady and ttest_steady_idx:
-        false_positives_ttest += 1
-    else:
-        false_negatives_ttest += 1
-
-    ftest_steady = True if ftest_steady_idx > -1 else False
-    if ftest_steady > -1:
-        n_std_ftest += 1
-    if is_steady == ftest_steady:
-        no_agreements_ftest += 1
-    elif not is_steady and ftest_steady_idx:
-        false_positives_ftest += 1
-    else:
-        false_negatives_ftest += 1
-
-    rtest_steady = True if rtest_steady_idx > -1 else False
-    if rtest_steady > -1:
         n_std_rtest += 1
     if is_steady == rtest_steady:
         no_agreements_rtest += 1
@@ -713,15 +249,32 @@ for e in larger_data['main']:
     else:
         false_negatives_rtest += 1
 
-    eb_steady = True if eb_steady_idx > -1 else False
-    if eb_steady > -1:
-        n_std_eb += 1
-    if is_steady == eb_steady:
-        no_agreements_eb += 1
-    elif not is_steady and eb_steady_idx:
-        false_positives_eb += 1
-    else:
-        false_negatives_eb += 1
+    jagt_bin.append(is_steady)
+    methods_bin[0].append(orig_classification)
+    methods_bin[1].append(new_clas_idx)
+    methods_bin[2].append(sdm_steady)
+    methods_bin[3].append(ttest_steady)
+    methods_bin[4].append(rtest_steady)
+
+    # ftest_steady = True if ftest_steady_idx > -1 else False
+    # if ftest_steady > -1:
+    #     n_std_ftest += 1
+    # if is_steady == ftest_steady:
+    #     no_agreements_ftest += 1
+    # elif not is_steady and ftest_steady_idx:
+    #     false_positives_ftest += 1
+    # else:
+    #     false_negatives_ftest += 1
+
+    # eb_steady = True if eb_steady_idx > -1 else False
+    # if eb_steady > -1:
+    #     n_std_eb += 1
+    # if is_steady == eb_steady:
+    #     no_agreements_eb += 1
+    # elif not is_steady and eb_steady_idx:
+    #     false_positives_eb += 1
+    # else:
+    #     false_negatives_eb += 1
 
     # Both methods and the ground truth agree with each other
     if is_steady == new_clas_idx == orig_classification:
@@ -731,14 +284,79 @@ for e in larger_data['main']:
     if (is_steady != new_clas_idx) and (new_clas_idx == orig_classification):
         n_method_agreements += 1
 
-print(n_std, n_std_orig, n_std_new, n_std_sdm)
-print(no_agreements_orig, no_agreements_new, no_agreements_sdm, no_agreements_ttest)
-print(false_positives_orig, false_negatives_orig, false_positives_new, false_negatives_new)
-print(n_total_agreements, n_method_agreements)
+# print(n_std, n_std_orig, n_std_new, n_std_sdm)
+# print(no_agreements_orig, no_agreements_new, no_agreements_sdm, no_agreements_ttest)
+# print(false_positives_orig, false_negatives_orig, false_positives_new, false_negatives_new)
+# print(n_total_agreements, n_method_agreements)
+
+jagt_bin = np.array(jagt_bin).astype(int)
+methods_bin = np.array(methods_bin).astype(int)
+
+print(jagt_bin)
+print(methods_bin)
+
+method_names = ['CP-SSD', 'KB-KSSD', 'SDM', 't-test', 'R-test']
+
+# Step 1: Compute confusion matrices and accuracies
+print("Confusion Matrices and Accuracies:")
+accuracies = []
+for i, preds in enumerate(methods_bin):
+    cm = confusion_matrix(jagt_bin, preds, labels=[1, 0])
+    tp, fn, fp, tn = cm[0, 0], cm[0, 1], cm[1, 0], cm[1, 1]
+    acc = (tp + tn) / np.sum(cm)
+    accuracies.append(acc)
+    print(f"{method_names[i]}:\n{cm}")
+    print(f"Accuracy: {acc:.3f}\n")
+
+accuracies = np.array(accuracies)
+best_idx = np.argmax(accuracies)
+print(f"Best performing method: {method_names[best_idx]} with accuracy {accuracies[best_idx]:.3f}\n")
+
+# Step 2: Prepare data for Cochran's Q Test
+correct_matrix = (methods_bin == jagt_bin).astype(int).T  # shape: (samples, methods)
+
+q_stat, p_value, df = cochrans_q(correct_matrix, return_object=False)
+print(f"Cochran's Q test statistic: {q_stat:.3f}, p-value: {p_value:.4f}")
+
+if p_value < 0.05:
+    # Selecting KB-KSSD
+
+
+    print("Significant difference detected among methods, proceeding with post-hoc McNemar's tests...\n")
+
+    # Step 3: Post-hoc pairwise McNemar tests vs best method
+    p_values = []
+    comparisons = []
+    best_preds = methods_bin[best_idx]
+
+    for i, preds in enumerate(methods_bin):
+        if i == best_idx:
+            continue
+
+        best_correct = (best_preds == jagt_bin)
+        other_correct = (preds == jagt_bin)
+
+        table = np.zeros((2, 2), dtype=int)
+        for bc, oc in zip(best_correct, other_correct):
+            table[bc, oc] += 1
+
+        result = mcnemar(table, exact=False)
+        p_values.append(result.pvalue)
+        comparisons.append((method_names[best_idx], method_names[i]))
+        print(f"McNemar test between {method_names[best_idx]} and {method_names[i]}: p-value={result.pvalue:.4f}")
+
+    # Step 4: Correct for multiple comparisons using Benjamini-Hochberg (FDR)
+    reject, pvals_corrected, _, _ = multipletests(p_values, method='fdr_bh')
+    print("\nAfter Benjamini-Hochberg correction:")
+    for (m1, m2), pval, rej in zip(comparisons, pvals_corrected, reject):
+        print(f"Comparison {m1} vs {m2}: corrected p-value={pval:.4f}, reject H0={rej}")
+
+else:
+    print("No significant difference detected; no need for post-hoc testing.")
 
 # Plot number of agreements with the larger data set for all the compared methods
 plt.figure()
-values = [0.75, 0.85, 0.65, 0.80, 0.70, 0.90, 0.78]
+values = [0.75, 0.85, 0.65, 0.80,]# 0.70, 0.90, 0.78]
 
 # Custom colors and edgecolors
 fill_colors = [
@@ -746,9 +364,9 @@ fill_colors = [
     '#4c72b0',  # blue
     '#BFBFBF',  # gray
     '#55A868',  # green
-    '#C44E52',  # dark red
-    '#8172B3',  # purple
-    '#CCB974',  # goldenrod
+    # '#C44E52',  # dark red
+    # '#8172B3',  # purple
+    # '#CCB974',  # goldenrod
 ]
 
 edge_colors = [
@@ -756,17 +374,17 @@ edge_colors = [
     '#2A4D69',  # blue edge
     '#7F7F7F',  # gray edge
     '#2C6B4D',  # green edge
-    '#872529',  # dark red edge
-    '#4B3D72',  # purple edge
-    '#7A653E',  # goldenrod edge
+    # '#872529',  # dark red edge
+    # '#4B3D72',  # purple edge
+    # '#7A653E',  # goldenrod edge
 ]
-hatches = ['/', '\\', 'x', '.', '-', '*', 'o']
+hatches = []# ['/', '\\', 'x', '.', '-', '*', 'o']
 
 # Create bar plot
 fig, ax = plt.subplots(figsize=(8, 6))
-bars = ax.bar(['CP-SSD', 'KB-KSSD', 'SDM', 't-test', 'F-test', 'R-test', 'ExactBayes'],
-              [no_agreements_orig, no_agreements_new, no_agreements_sdm, no_agreements_ttest, no_agreements_ftest,
-               no_agreements_rtest, no_agreements_eb],
+bars = ax.bar(['CP-SSD', 'KB-KSSD', 'SDM', 't-test'],#, 'F-test', 'R-test', 'ExactBayes'],
+              [no_agreements_orig, no_agreements_new, no_agreements_sdm, no_agreements_ttest],
+              #, no_agreements_ftest, no_agreements_rtest, no_agreements_eb],
               color=fill_colors,
               edgecolor=edge_colors,
               linewidth=1.5)
