@@ -269,10 +269,7 @@ def get_compact_result(P: np.ndarray, warmup_end: int) -> dict:
 
     return results
 
-fig_idx = 0
-def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
-    global fig_idx
-
+def detect_step(data: np.ndarray, win_size: int = 50, plot_fig_idx: None | int = None, file_suffix: None | str = None) -> tuple[int, np.ndarray]:
     # Raw, non-shifted data
     raw_data = data.copy()
     mean_data = np.average(data)
@@ -296,10 +293,10 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
     #return np.min(np.array([large_up, large_kernel_step_idx, small_up, small_kernel_step_idx])), timeseries_step
 
     # print(small_kernel_step_idx, large_kernel_step_idx, small_up, large_up)
-    fig, ax1 = plt.subplots()
-    ax2 = ax1.twinx()
 
-
+    if plot_fig_idx:
+        fig, ax1 = plt.subplots()
+        ax2 = ax1.twinx()
     # plt.title(f'Convolution with larger kernel')
     # plt.savefig('convolution_larger')
     # plt.close()
@@ -350,66 +347,173 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
 
         # Difference of medians of windows around the detected "large step"
         large_diff = np.median(large_left_win) - np.median(large_right_win)
-        tmp_len = len(data[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)])
-        tmp_start = len(data[:max(large_kernel_step_idx - win_size, 0)])
-        ax1.grid(axis='y', linestyle='--', alpha=0.7)
-        ax1.spines['top'].set_visible(False)
-        ax1.spines['right'].set_visible(False)
-        ax2.spines['top'].set_visible(False)
-        ax2.spines['right'].set_visible(False)
-        ax1.tick_params(axis='both', which='both')
-        ax2.tick_params(axis='both', which='both')
-        ax2.set_yticks([])
-        line1 = ax1.scatter(range(tmp_len), raw_data[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)], label='Timeseries', s=15)
-        line2, = ax2.plot(timeseries_step[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)] + mean_data, label='$(a_l * t)$', color='orange', lw=2.5)
-        # print(np.median(data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, large_kernel_step_idx)
-        line3 = ax1.hlines(np.median(large_left_win)+mean_data, 0, max(large_kernel_step_idx - tmp_start, 0), color='r', label='Left window median', linestyle='--', lw=2.5)
-        line4 = ax1.hlines(np.median(large_right_win)+mean_data, max(large_kernel_step_idx - tmp_start, 0), tmp_len, color='magenta', label='Right window median', linestyle='--', lw=2.5)
+        # tmp_len = len(data[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)])
+        # tmp_start = len(data[:max(large_kernel_step_idx - win_size, 0)])
 
-        ax1.tick_params(axis='both', labelsize=14)
-
-        ax1.set_ylabel('Time [s]', fontsize=14)
-        ax1.set_xlabel('Sample index', fontsize=14)
-        lines = (line1, line2, line3, line4)
-        labels = [l.get_label() for l in lines]
-        ax1.legend(lines, labels, loc='center right', fontsize=14)
-
-        # get the xticks, which are the numeric location of the ticks
-        xticks = ax1.get_xticks()
-
-        # get the xticks and convert the values in the array to str type
-        xticklabels = list(map(str, ax1.get_xticks()))
-
-        # update the string to be changed
-        tick_len = len(xticklabels)
-
-        tick_inc = (tmp_len/tick_len)
-        for i in range(tick_len):
-            xticklabels[i] = int(tmp_start + tick_inc*i)
-
-        # set the xticks and the labels
-        _ = ax1.set_xticks(xticks, xticklabels)
-
-
-        # ax2.legend(loc='upper center')
-        # ax1.hlines(np.median(large_left_win), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, color='r')
-        # ax1.hlines(np.median(large_right_win), large_kernel_step_idx + 1, min(large_kernel_step_idx + win_size + 1, data_len), color='r')
-        plt.tight_layout()
-        # plt.title(fig_idx)
-        # plt.show()
-        plt.savefig(f'plots/conv_illustrations/conv_{fig_idx}.eps', format='eps')
-        fig_idx += 1
-
+        # if plot_fig_idx:
+        #     ax1.grid(axis='y', linestyle='--', alpha=0.7)
+        #     ax1.spines['top'].set_visible(False)
+        #     ax1.spines['right'].set_visible(False)
+        #     ax2.spines['top'].set_visible(False)
+        #     ax2.spines['right'].set_visible(False)
+        #     ax1.tick_params(axis='both', which='both')
+        #     ax2.tick_params(axis='both', which='both')
+        #     ax2.set_yticks([])
+        #     line1 = ax1.scatter(range(tmp_len), raw_data[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)], label='Timeseries', s=15)
+        #     line2, = ax2.plot(timeseries_step[max(large_kernel_step_idx - win_size, 0):min(large_kernel_step_idx + win_size + 1, data_len)] + mean_data, label='$(a_l * t)$', color='orange', lw=2.5)
+        #     # print(np.median(data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, large_kernel_step_idx)
+        #     line3 = ax1.hlines(np.median(large_left_win)+mean_data, 0, max(large_kernel_step_idx - tmp_start, 0), color='r', label='Left window median', linestyle='--', lw=2.5)
+        #     line4 = ax1.hlines(np.median(large_right_win)+mean_data, max(large_kernel_step_idx - tmp_start, 0), tmp_len, color='magenta', label='Right window median', linestyle='--', lw=2.5)
+        #
+        #     ax1.tick_params(axis='both', labelsize=14)
+        #
+        #     ax1.set_ylabel('Time [s]', fontsize=14)
+        #     ax1.set_xlabel('Sample index', fontsize=14)
+        #     lines = (line1, line2, line3, line4)
+        #     labels = [l.get_label() for l in lines]
+        #     ax1.legend(lines, labels, loc='center right', fontsize=14)
+        #
+        #     # get the xticks, which are the numeric location of the ticks
+        #     xticks = ax1.get_xticks()
+        #
+        #     # get the xticks and convert the values in the array to str type
+        #     xticklabels = list(map(str, ax1.get_xticks()))
+        #
+        #     # update the string to be changed
+        #     tick_len = len(xticklabels)
+        #
+        #     tick_inc = (tmp_len/tick_len)
+        #     for i in range(tick_len):
+        #         xticklabels[i] = int(tmp_start + tick_inc*i)
+        #
+        #     # set the xticks and the labels
+        #     _ = ax1.set_xticks(xticks, xticklabels)
+        #
+        #     plt.tight_layout()
+        #     plt.savefig(f'plots/conv_illustrations/conv_{plot_fig_idx}.eps', format='eps')
+        #     plt.close()
 
         # Choose the step detected via "short kernel" as a default one
         step_idx = small_kernel_step_idx
         right_med = np.median(data[large_kernel_step_idx+1:])
 
+        tmp_swap = False
         # Check, if the step detected via "short kernel" is significant enough, otherwise take the "large kernel" one
         if np.median(data[small_kernel_step_idx+1:large_kernel_step_idx]) > 2.0*np.abs(large_diff) + right_med:
             step_idx = large_kernel_step_idx
+            tmp_swap = True
+
+
+
+        tmp_len = len(
+            data[max(step_idx - win_size, 0):min(step_idx + win_size + 1, data_len)])
+        tmp_start = len(data[:max(step_idx - win_size, 0)])
+
+        if plot_fig_idx:
+            ax1.grid(axis='y', linestyle='--', alpha=0.7)
+            ax1.spines['top'].set_visible(False)
+            ax1.spines['right'].set_visible(False)
+            ax2.spines['top'].set_visible(False)
+            ax2.spines['right'].set_visible(False)
+            ax1.tick_params(axis='both', which='both')
+            ax2.tick_params(axis='both', which='both')
+            ax2.set_yticks([])
+            line1 = ax1.scatter(range(tmp_len), raw_data[max(step_idx - win_size, 0):min(step_idx + win_size + 1, data_len)], label='Timeseries', s=15)
+            line2, = ax2.plot(timeseries_step[max(step_idx - win_size, 0):min(step_idx + win_size + 1, data_len)] + mean_data, label='$(a_l * t)$', color='orange', lw=2.5)
+            # print(np.median(data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, large_kernel_step_idx)
+            line3 = ax1.hlines(np.median(large_left_win)+mean_data, 0, max(step_idx - tmp_start, 0), color='r', label='Left window median', linestyle='--', lw=2.5)
+            line4 = ax1.hlines(np.median(large_right_win)+mean_data, max(step_idx - tmp_start, 0), tmp_len, color='magenta', label='Right window median', linestyle='--', lw=2.5)
+
+            ax1.tick_params(axis='both', labelsize=18)
+
+            ax1.set_ylabel('Time [s]', fontsize=18)
+            ax1.set_xlabel('Sample index', fontsize=18)
+            lines = (line1, line2, line3, line4)
+            labels = [l.get_label() for l in lines]
+
+            # ax1.legend(
+            #     lines,
+            #     labels,
+            #     loc='lower center',
+            #     bbox_to_anchor=(0.5, 1.02),  # Just above the axes
+            #     ncol=2,  # Adjust based on how many entries you want per row
+            #     frameon=False,
+            #     fontsize=18,
+            #     handlelength=1.5,
+            #     columnspacing=1.0
+            # )
+
+            ax1.set_xlim(0, tmp_len-1)
+            # get the xticks, which are the numeric location of the ticks
+            xticks = ax1.get_xticks()
+
+            # get the xticks and convert the values in the array to str type
+            xticklabels = list(map(str, ax1.get_xticks()))
+
+            # update the string to be changed
+            tick_len = len(xticklabels)
+
+
+            #tick_inc = (tmp_len/tick_len)
+            for i in range(tick_len):
+                xticklabels[i] = tmp_start + float(xticklabels[i])
+
+            # set the xticks and the labels
+            _ = ax1.set_xticks(xticks, xticklabels)
+
+            plt.tight_layout()
+            plt.savefig(f'plots/conv_illustrations/conv_{plot_fig_idx}{tmp_swap}.eps', format='eps')
+            plt.close()
 
     elif small_kernel_step_idx > -1:
+        small_left_win = data[max(small_kernel_step_idx - win_size, 0):small_kernel_step_idx + 1]
+        small_right_win = data[small_kernel_step_idx + 1:min(small_kernel_step_idx + win_size + 1, data_len)]
+        small_diff = np.median(small_left_win) - np.median(small_right_win)
+        tmp_len = len(data[max(small_kernel_step_idx - win_size, 0):min(small_kernel_step_idx + win_size + 1, data_len)])
+        tmp_start = len(data[:max(small_kernel_step_idx - win_size, 0)])
+        if plot_fig_idx:
+            ax1.grid(axis='y', linestyle='--', alpha=0.7)
+            ax1.spines['top'].set_visible(False)
+            ax1.spines['right'].set_visible(False)
+            ax2.spines['top'].set_visible(False)
+            ax2.spines['right'].set_visible(False)
+            ax1.tick_params(axis='both', which='both')
+            ax2.tick_params(axis='both', which='both')
+            ax2.set_yticks([])
+            line1 = ax1.scatter(range(tmp_len), raw_data[max(small_kernel_step_idx - win_size, 0):min(small_kernel_step_idx + win_size + 1, data_len)], label='Timeseries', s=15)
+            line2, = ax2.plot(timeseries_step[max(small_kernel_step_idx - win_size, 0):min(small_kernel_step_idx + win_size + 1, data_len)] + mean_data, label='$(a_l * t)$', color='orange', lw=2.5)
+            # print(np.median(data[max(large_kernel_step_idx - win_size, 0):large_kernel_step_idx + 1]), max(large_kernel_step_idx - win_size, 0), large_kernel_step_idx + 1, large_kernel_step_idx)
+            line3 = ax1.hlines(np.median(small_left_win)+mean_data, 0, max(small_kernel_step_idx - tmp_start, 0), color='r', label='Left window median', linestyle='--', lw=2.5)
+            line4 = ax1.hlines(np.median(small_right_win)+mean_data, max(small_kernel_step_idx - tmp_start, 0), tmp_len, color='magenta', label='Right window median', linestyle='--', lw=2.5)
+
+            ax1.tick_params(axis='both', labelsize=14)
+
+            ax1.set_ylabel('Time [s]', fontsize=14)
+            ax1.set_xlabel('Sample index', fontsize=14)
+            lines = (line1, line2, line3, line4)
+            labels = [l.get_label() for l in lines]
+            ax1.legend(lines, labels, loc='center right', fontsize=14)
+
+            # get the xticks, which are the numeric location of the ticks
+            xticks = ax1.get_xticks()
+
+            # get the xticks and convert the values in the array to str type
+            xticklabels = list(map(str, ax1.get_xticks()))
+
+            # update the string to be changed
+            tick_len = len(xticklabels)
+
+            tick_inc = (tmp_len/tick_len)
+            for i in range(tick_len):
+                xticklabels[i] = int(tmp_start + tick_inc*i)
+
+            # set the xticks and the labels
+            _ = ax1.set_xticks(xticks, xticklabels)
+
+            plt.tight_layout()
+            plt.savefig(f'plots/conv_illustrations/conv_{plot_fig_idx}small.eps', format='eps')
+            plt.close()
+
         step_idx = small_kernel_step_idx
 
     if np.median(data[:step_idx])-np.median(data[step_idx:]) < np.abs(np.median(data)/2):
@@ -431,6 +535,7 @@ def detect_step(data: np.ndarray, win_size: int = 50) -> tuple[int, np.ndarray]:
     # if up_diff > 2*chosen_diff:
     #     step_idx = up_step
     #     print(f'Chosen UP')
+
     return step_idx, timeseries_step
 
 
@@ -450,14 +555,14 @@ def detect_steady_state(x: np.ndarray | list,
                         prob_win_size: int,
                         t_crit: float,
                         step_win_size: int = 150,
-                        medfilt_kernel_size: int = 15) -> tuple[np.ndarray, int]:
+                        medfilt_kernel_size: int = 15, plot_fig_idx = None, file_suf = None) -> tuple[np.ndarray, int]:
     # TODO probably substitute outliers with the median of their surroundings
 
     # Apply median filter to data for warm-up detection
     x_smooth = ssi.medfilt(x, kernel_size=medfilt_kernel_size)
 
     # Detect a significant step in data, if there is one
-    warmup_end = detect_step(x_smooth, step_win_size)[0]
+    warmup_end = detect_step(x_smooth, step_win_size, plot_fig_idx, file_suffix=file_suf)[0]
 
     # Compute window-based probabilities of steadiness in data, around the step, if detected
     probabilities = None

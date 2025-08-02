@@ -12,6 +12,7 @@ import sys
 
 from matplotlib import pyplot as plt
 import plotly
+from matplotlib.ticker import MaxNLocator
 
 sys.path.append('..')
 import steady_state_detection as ssd
@@ -22,6 +23,9 @@ import scipy.signal as ssi
 import sklearn.cluster
 from scipy.stats import norm
 from scipy.optimize import differential_evolution
+import matplotlib.patches as mpatches
+from matplotlib.legend_handler import HandlerPatch
+from matplotlib.lines import Line2D
 
 # # Are the data labeled OK? They are - the following code checks it.
 # for f in os.listdir('../man_steady_indices/data_st'):
@@ -215,66 +219,88 @@ for i, e in enumerate(data_vittorio.data['main']):
     # plt.savefig(f'plots/plot_{i}.png')
     # plt.close()
 
+    if i == 65:
+        series = data_sum[series_key]['series']
+        plt.figure(figsize=(3.5, 2.2), dpi=300)
+
+        # Plot a subtle shadow behind the main line (by offsetting slightly)
+        plt.plot(series, color='lightgray', linewidth=1, zorder=1)
+
+        # Main line on top
+        plt.plot(series, color='#4c72b0', linewidth=1.8, zorder=2)
+
+        # Axis cleanup
+        ax = plt.gca()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.grid(axis='y', linestyle='--', alpha=0.5)
+        ax.tick_params(axis='both', labelsize=8)
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=6))
+
+        # Axis labels
+        plt.xlabel('Sample index', fontsize=9)
+        plt.ylabel('Time [s]', fontsize=9)
+
+        # Optional: Add a small legend
+        plt.legend(loc='upper right', fontsize=7, frameon=False)
+
+        # Tight layout and export
+        plt.tight_layout()
+        plt.savefig('plots/example-series.png', bbox_inches='tight')
+        plt.savefig('plots/example-series.eps', format='eps', bbox_inches='tight')
+        plt.close()
+
     # Update matplotlib settings for compact and readable plots
-    plt.rcParams.update({
-        "font.size": 8,
-        "axes.labelsize": 8,
-        "axes.titlesize": 9,
-        "xtick.labelsize": 7,
-        "ytick.labelsize": 7,
-        "legend.fontsize": 7,
-        "lines.linewidth": 1.5,
-        "axes.linewidth": 0.8,
-        "pdf.fonttype": 42,  # Vector fonts
-    })
+    # plt.rcParams.update({
+    #     "font.size": 16,
+    #     "axes.labelsize": 14,
+    #     "axes.titlesize": 9,
+    #     "xtick.labelsize":12,
+    #     "ytick.labelsize": 12,
+    #     "legend.fontsize": 16,
+    #     "lines.linewidth": 1.5,
+    #     "axes.linewidth": 0.8,
+    #     "pdf.fonttype": 42,  # Vector fonts
+    # })
 
     # Define your custom color palette
     colors = {
-        'orig': '#D85C5C',  # red
-        'new': '#4c72b0',  # blue
-        'sdm': '#BFBFBF',  # gray
-        'ttest': '#55A868',  # green
-        'ftest': '#C44E52',  # dark red
-        'rtest': '#8172B3',  # purple
-        'eb': '#CCB974',  # goldenrod
-        'steady': 'black'
+        'CP-SSD': '#D85C5C',  # red
+        'KB-KSSD': '#4c72b0',  # blue
+        'SDM': '#BFBFBF',  # gray
+        't-test': '#55A868',  # green
+        'F-test': '#C44E52',  # dark red
+        'R-test': '#8172B3',  # purple
+        'Exact Bayes': '#CCB974',  # goldenrod
+        'JAGT': 'black'
     }
 
     # Distinct line styles for greyscale clarity
     linestyles = {
-        "orig": "-",  # solid
-        "new": "--",  # dashed
-        "sdm": "-.",  # dash-dot
-        "ttest": ":",  # dotted
+        "CP-SSD": "-",  # solid
+        "KB-KSSD": "--",  # dashed
+        "SDM": "-.",  # dash-dot
+        "t-test": ":",  # dotted
         # "ftest": (0, (1, 1)),  # custom: very short dots
         # "rtest": (0, (3, 1, 1, 1)),  # custom: dash-dot-dot
         # "eb": (0, (5, 2)),  # custom: long dashes
-        'steady': (0, (2, 2, 8, 2))
+        'JAGT': (0, (2, 2, 8, 2))
     }
 
-    # Begin plotting
-    plt.figure(figsize=(3.5, 2.2), dpi=300)
+    # Slightly wider to match legend width — you can tune this
+    plt.figure(figsize=(8, 2.2), dpi=300)
 
-    # Title
-    # plt.title(e['keyname'])
-
-    # Plot the main time series
     series = data_sum[e['keyname'][:-2]]['series']
-    plt.plot(series, color='gray', label='series')
+    plt.plot(series, color='gray')
 
     # Vertical lines
     idxs = data_sum[e['keyname'][:-2]]['idxs']
     vline_data = {
-        "orig": idxs['cpssd'],
-        "new": idxs['kbkssd'],
-        "sdm": idxs['sdm'],
-        "ttest": idxs['ttest'],
-        # 'ftest': idxs['ftest'],
-        # 'rtest': idxs['rtest'],
-        # 'eb': idxs['eb'],
-        # 'steady': data_sum[e['keyname'][:-2]]['steady_idx']
+        "CP-SSD": idxs['cpssd'],
+        "KB-KSSD": idxs['kbkssd'],
+        "SDM": idxs['sdm'],
+        "t-test": idxs['ttest'],
     }
-
     ymin = min(series)
     ymax = max(series)
 
@@ -283,17 +309,37 @@ for i, e in enumerate(data_vittorio.data['main']):
 
     # Steady index
     steady_idx = data_sum[e['keyname'][:-2]]['steady_idx']
-    plt.axvline(steady_idx, color=colors["steady"], linestyle=linestyles["steady"], linewidth=1.2, label='JAGT')
+    plt.axvline(steady_idx, color=colors["JAGT"], linestyle=linestyles["JAGT"], linewidth=1.2, label='JAGT')
 
-    # Add axis labels
-    plt.xlabel("Sample index")
-    plt.ylabel("Time [s]")
+    # Clean up axis
+    ax = plt.gca()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.grid(axis='y', linestyle='--', alpha=0.7)
+    ax.tick_params(axis='both', labelsize=16)
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=6))
 
-    # Legend
-    plt.legend(loc='upper right', frameon=False)
+    # Axis labels
+    plt.xlabel("Sample index", fontsize=16)
+    plt.ylabel("Time [s]", fontsize=16)
 
-    # Save figure
-    plt.tight_layout()
+    # Legend: keep horizontal, but fit the width
+    if i == 67:
+        plt.legend(
+            loc='lower center',
+            bbox_to_anchor=(0.5, 1.05),
+            ncol=len(vline_data) + 1,
+            frameon=False,
+            columnspacing=0.8,
+            handlelength=1.5,
+            borderpad=0.4,
+            fontsize=18,
+        )
+
+    # Adjust layout: leave vertical space above for the legend
+    plt.subplots_adjust(top=0.78)  # more headroom
+
+    # Save
     plt.savefig(f'plots/plot_{i}.png', bbox_inches='tight')
     plt.savefig(f'plots/plot_{i}.eps', format='eps', bbox_inches='tight')
     plt.close()
@@ -339,6 +385,19 @@ print(f'R-test: clust {manhattan_rtest_clust}, scat {manhattan_rtest_scat}, tota
                                                                                    manhattan_rtest_scat}')
 
 # Sample data for 5 methods
+# Force square in legend
+class SquareHandler(HandlerPatch):
+    def create_artists(self, legend, orig_handle, xdescent, ydescent, width, height, fontsize, trans):
+        size = min(width, height)  # force square
+        center = xdescent + width / 2, ydescent + height / 2
+        patch = mpatches.Rectangle((center[0] - size/2, center[1] - size/2),
+                                   size, size,
+                                   facecolor=orig_handle.get_facecolor()[0],
+                                   edgecolor=orig_handle.get_edgecolor()[0],
+                                   hatch=orig_handle.get_hatch(),
+                                   transform=trans)
+        return [patch]
+
 methods = ['CP-SSD', 'KB-KSSD', 'SDM', 't-test']#, 'R-test']
 property_1 = [manhattan_orig_clust, manhattan_new_clust, manhattan_sdm_clust, manhattan_ttest_clust] #,manhattan_rtest_clust]
 property_2 = [manhattan_orig_scat, manhattan_new_scat, manhattan_sdm_scat, manhattan_ttest_scat] #, manhattan_rtest_scat]
@@ -392,19 +451,26 @@ for i in range(len(methods)):
 # Axis and grid formatting
 ax.set_xticks(x)
 ax.set_xticklabels(methods)
-ax.set_ylabel("Manhattan distance to (steady) JAGT")
+ax.set_ylabel("Manhattan distance to (steady) JAGT", fontsize=18)
 # ax.set_title("Compact Bar Plot: Properties vs. Total")
 ax.grid(True, axis='y', linestyle='--', alpha=0.4)
 
-# Custom legend
-legend_elements = [
-    plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor='black', hatch=hatch_1,
-                  label='Clustered idxs'),
-    plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor='black', hatch=hatch_2,
-                  label='Scattered idxs'),
-    plt.Rectangle((0, 0), 1, 1, facecolor='gray', edgecolor='black', label='Total (Summation)')
-]
-ax.legend(handles=legend_elements)
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.tick_params(axis='both', labelsize=18)
+
+# Define legend patches with hatches
+cluster_patch = mpatches.Patch(facecolor='white', edgecolor='black', hatch='/', label='Clustered idxs')
+scatter_patch = mpatches.Patch(facecolor='white', edgecolor='black', hatch='\\', label='Scattered idxs')
+total_patch = mpatches.Patch(facecolor='gray', edgecolor='black', label='Total (Sum)')
+
+# Create the legend
+plt.legend(handles=[cluster_patch, scatter_patch, total_patch],
+           fontsize=18,
+           handlelength=1.25,   # Shorter makes it squarer
+           handleheight=1.5,   # Taller makes it squarer
+           borderpad=0.4,
+           loc='best')
 
 plt.tight_layout()
 plt.savefig('barplots/manhattan_errs_all.png')
