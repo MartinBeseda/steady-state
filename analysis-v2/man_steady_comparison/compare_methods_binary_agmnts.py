@@ -394,8 +394,13 @@ for bar, hatch in zip(bars, hatches):
     bar.set_hatch(hatch)
 
 # Labels and title
-ax.set_ylabel('Agreements')
+ax.set_ylabel('Agreements', fontsize=20)
 ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+# Remove top and right spines for ax1
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+ax.tick_params(axis='both', labelsize=20)
 
 # Annotate values
 for bar in bars:
@@ -404,7 +409,7 @@ for bar in bars:
                 xy=(bar.get_x() + bar.get_width() / 2, height),
                 xytext=(0, 5),
                 textcoords="offset points",
-                ha='center', va='bottom')
+                ha='center', va='bottom', fontsize=20)
 
 plt.tight_layout()
 plt.savefig('barplots/agreements_all.eps', format='eps')
