@@ -17,6 +17,7 @@ The method comparison results can be obtained as follows:
 ```
 cd analysis-v2/man_steady_comparison
 python3 compare_methods.py
+python3 compare_methods_binary_agmnts.py
 ```
 
 ## RQ2: Sobol's Sensitivity Analysis
