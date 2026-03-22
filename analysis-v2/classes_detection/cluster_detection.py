@@ -11,6 +11,8 @@ Enhanced version with:
 """
 
 import os, glob, json, warnings
+from collections import OrderedDict, Counter
+
 import numpy as np
 from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
@@ -20,6 +22,10 @@ import hdbscan
 import matplotlib.pyplot as plt
 import umap
 from matplotlib.ticker import MaxNLocator
+import sys
+
+sys.path.append('..')
+import steady_state_detection as ssd
 
 # -------------------------------------------------------------------
 # CONFIG
@@ -37,17 +43,22 @@ RESAMPLE_LEN = 500
 
 def load_all_json(glob_pattern=DATA_GLOB):
     series = []
+    # loaded_data = OrderedDict()
     for fp in glob.glob(glob_pattern):
-        try:
-            data = json.load(open(fp))
-            if isinstance(data, list) and len(data) > 0:
-                if isinstance(data[0], list):
-                    for s in data:
-                        series.append(np.array(s, dtype=float))
-                else:
-                    series.append(np.array(data, dtype=float))
-        except Exception:
-            continue
+        # try:
+        series_name = fp.rsplit('/')[-1]
+        data = json.load(open(fp))
+        if isinstance(data, list) and len(data) > 0:
+            if isinstance(data[0], list):
+                for sidx, s in enumerate(data):
+                    series.append(np.array(s, dtype=float))
+                    # loaded_data[f'{series_name}_{sidx}'] = {'cluster_idx': None,
+                    #                                         'steadiness_idx_kbkssd': get_ssd_idx(s)}
+            else:
+                series.append(np.array(data, dtype=float))
+        # except Exception:
+        #     continue
+
     print(f"Loaded {len(series)} total timeseries from {len(glob.glob(glob_pattern))} files.")
     return series
 
@@ -144,6 +155,32 @@ def evaluate_hdbscan(features, metric='euclidean',
     return best
 
 
+#------------------------
+# Steady-state Detection
+#------------------------
+def get_ssd_idx(timeseries,
+                outliers_window_size=100,
+                prob_win_size=500,
+                t_crit=4,
+                step_win_size=70,
+                median_kernel_size=1,
+                prob_threshold=0.95):
+    timeseries1 = timeseries.copy()
+    timeseries, _ = ssd.substitute_outliers_percentile(timeseries,
+                                                       percentile_threshold_upper=98,
+                                                       percentile_threshold_lower=2,
+                                                       window_size=outliers_window_size)
+    timeseries2 = timeseries.copy()
+    # timeseries = ssi.medfilt(timeseries, kernel_size=3)
+
+    # Apply the new approach
+    P, warmup_end = ssd.detect_steady_state(timeseries, prob_win_size=prob_win_size, t_crit=t_crit,
+                                            step_win_size=step_win_size, medfilt_kernel_size=median_kernel_size,
+                                            plot_fig_idx=None)
+    res = ssd.get_compact_result(P, warmup_end)
+    new_clas_idx = ssd.get_ssd_idx(res, prob_threshold=prob_threshold, min_steady_length=1)
+    return new_clas_idx
+
 def summarize_clusters(features, labels):
     clusters = np.unique(labels[labels >= 0])
     summaries = []
@@ -168,6 +205,8 @@ def summarize_clusters(features, labels):
 
 def main():
     series = load_all_json(DATA_GLOB)
+    loaded_data = json.load(open('series_kbkssd_ssd.json'))
+
     if not series:
         return
     data = np.array([resample(z_norm(ts), RESAMPLE_LEN) for ts in series])
@@ -207,6 +246,15 @@ def main():
         return
 
     n_pca, metric, clusters, outliers, mcs, eps, labels, score, Xp = best_overall
+
+    # Assign cluster indices & steadiness information to the timeseries
+    ssd_info = json.load(open('series_kbkssd_ssd.json'))
+    for e in zip(loaded_data, labels):
+        loaded_data[e[0]]['cluster_idx'] = int(e[1])
+        loaded_data[e[0]]['steady'] = int(ssd_info[e[0]]['steadiness_idx_kbkssd'])
+
+    json.dump(loaded_data, open('series_kbkssd.json', 'w'))
+
     print(f"\n--- BEST CONFIGURATION ---")
     print(f"PCA={n_pca}, metric={metric}, clusters={clusters}, outliers={outliers}, mcs={mcs}, eps={eps:.2f}")
 
@@ -214,6 +262,116 @@ def main():
     print("\n--- CLUSTER SUMMARIES (all clusters) ---")
     for _, s in summaries:
         print(s)
+
+    #------------------------
+    # Aggregate cluster data
+    #------------------------
+    cluster_detail = {}
+    for k, v in loaded_data.items():
+        if v['cluster_idx'] not in cluster_detail:
+            cluster_detail[v['cluster_idx']] = {'n_series': 0, 'n_unsteady': 0, 'projects': {}}
+
+        cluster_detail[v['cluster_idx']]['n_series'] += 1
+
+        project_name = k.split('_')[0]
+        if project_name not in cluster_detail[v['cluster_idx']]['projects']:
+            cluster_detail[v['cluster_idx']]['projects'][project_name] = 1
+        else:
+            cluster_detail[v['cluster_idx']]['projects'][project_name] += 1
+
+        if v['steadiness_idx_kbkssd'] == -1:
+            cluster_detail[v['cluster_idx']]['n_unsteady'] += 1
+
+    # ---- select top 10 clusters by size ----
+    top_clusters = sorted(cluster_detail.items(), key=lambda x: x[1]['n_series'], reverse=True)[:10]
+
+    cluster_ids = [cid for cid, _ in top_clusters]
+    sizes = [c['n_series'] for _, c in top_clusters]
+    unsteady = [c['n_unsteady'] for _, c in top_clusters]
+
+    # ---- A) Scatter: unsteady vs size ----
+    plt.figure()
+    plt.scatter(sizes, unsteady)
+    plt.xlabel("Cluster size (n_series)")
+    plt.ylabel("Number of unsteady series")
+    plt.title("Unsteady vs Cluster Size")
+    plt.show()
+
+    # ---- B) Bar: unsteady ratio ----
+    ratios = [
+        c['n_unsteady'] / c['n_series'] if c['n_series'] > 0 else 0
+        for _, c in top_clusters
+    ]
+
+    plt.figure()
+    plt.bar(cluster_ids, ratios)
+    plt.xlabel("Cluster ID")
+    plt.ylabel("Unsteady ratio")
+    plt.title("Unsteady Ratio per Cluster")
+    plt.show()
+
+    # ---- C) Stacked bar: project composition ----
+    all_projects = sorted({
+        proj
+        for _, c in top_clusters
+        for proj in c['projects']
+    })
+
+    bottom = [0] * len(top_clusters)
+
+    plt.figure()
+
+    for project in all_projects:
+        values = [
+            c['projects'].get(project, 0)
+            for _, c in top_clusters
+        ]
+        plt.bar(cluster_ids, values, bottom=bottom, label=project)
+        bottom = [b + v for b, v in zip(bottom, values)]
+
+    plt.xlabel("Cluster ID")
+    plt.ylabel("Number of series")
+    plt.title("Project Composition per Cluster")
+    plt.legend()
+    plt.show()
+
+    # ---- D) Pie charts: per cluster ----
+    def autopct_with_counts(values):
+        def inner(pct):
+            total = sum(values)
+            count = int(round(pct * total / 100.0))
+            return f"{count} ({pct:.1f}%)"
+
+        return inner
+
+    for cid, c in top_clusters:
+        projects = c['projects']
+
+        plt.figure()
+        # plt.pie(
+        #     projects.values(),
+        #     labels=projects.keys(),
+        #     autopct=autopct_with_counts(values)
+        # )
+        plt.xticks(rotation=90, ha='right')
+        plt.bar(range(len(projects)), projects.values(), label=projects.keys(), tick_label=projects.keys())
+        plt.title(f"Cluster {cid} Project Share (n={c['n_series']})")
+        plt.show()
+
+    # ---- E) Overall project distribution (extra useful!) ----
+    total_projects = Counter()
+
+    for _, c in top_clusters:
+        total_projects.update(c['projects'])
+
+    plt.figure()
+    plt.pie(
+        total_projects.values(),
+        labels=total_projects.keys(),
+        autopct='%1.1f%%'
+    )
+    plt.title("Overall Project Distribution (Top Clusters)")
+    plt.show()
 
     # -------------------------------------------------------------------
     # UMAP VISUALIZATION
