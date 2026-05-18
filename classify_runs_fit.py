@@ -1,11 +1,13 @@
 import json
 import os
-from glob import glob
 from kalibera import test
 
 STEADY_STATE = "steady state"
 NO_STEADY_STATE = "no steady state"
 INCONSISTENT = "inconsistent"
+
+
+jagt = json.load(open('analysis-v2/man_steady_comparison/full_classification.json'))
 
 
 def load(path):
@@ -69,23 +71,23 @@ def classify_benchmark(ts_list, cpts_list, es, significance):
     return {"run": classification, "forks": forks, "steady_state_starts": steady_state_starts_at}
 
 
-def classify_runs(es, significance):
-    root_dir = './data'
-    measurements_dir = '{}/timeseries/all'.format(root_dir)
-    changepoints_dir = '{}/changepoints_cpssd_fitted'.format(root_dir)
-    classification_dir = '{}/classification_cpssd_fitted'.format(root_dir)
+def classify_runs(es,
+                  significance,
+                  changepoints_dir,
+                  classification_dir):
 
     if not os.path.exists(classification_dir):
         os.mkdir(classification_dir)
 
-    for path in glob('{}/*.json'.format(measurements_dir)):
-        filename = path.split('/')[-1]
-        changepoints_path = '{}/{}'.format(changepoints_dir, filename)
-        classification_path = '{}/{}'.format(classification_dir, filename)
+    # TODO rewrite in a way, that only JAGT timeseries are considered and not every single one
+    for series_name_fork, e in jagt.items():
+        filename, fork_idx = series_name_fork.rsplit('_', 1)
+        changepoints_path = f'{changepoints_dir}/{filename}'
+        classification_path = f'{classification_dir}/{filename}'
 
         if not os.path.exists(classification_path):
             print("Executing {}".format(filename))
-            ts_list = load(path)
+            ts_list = load(f'./data/timeseries/all/{filename}')
             cpts_list = load(changepoints_path)
 
             classification = classify_benchmark(ts_list, cpts_list, es, significance)

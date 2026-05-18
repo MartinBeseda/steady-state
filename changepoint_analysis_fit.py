@@ -1,28 +1,21 @@
-from glob import glob
 import os
 from changepoint_fit import changepoint
-import sys
+from prepare_dir import prepare_dir
+import json
 
-filtered_dirpath = './data/timeseries/filtered'
-jmh_dirpath = './data/timeseries/all'
-changepoints_dirpath = './data/changepoints_cpssd_fitted'
+jagt = json.load(open('analysis-v2/man_steady_comparison/full_classification.json'))
 
+def changepoint_analysis(S, curve, direction, dirpath):
+    changepoints_path = prepare_dir(dirpath)
 
-def changepoint_analysis(S, curve, direction):
-    if not os.path.exists(changepoints_dirpath):
-        os.mkdir(changepoints_dirpath)
+    # Iterate over JAGT
+    for series_name_fork, e in jagt.items():
+        filename, fork_idx = series_name_fork.rsplit('_', 1)
+        jmh_path = f'./data/timeseries/all/{filename}'
+        filtered_path = f'./data/timeseries/filtered/{filename}'
 
-    for filtered_path in glob('{}/*.json'.format(filtered_dirpath)):
-    # for filtered_path in glob('{}/h2oai__h2o-3#water.ChunkBench.colsRowsRead#cols=10000&rows=100000.json'.format(filtered_dirpath)):
-
-        print(filtered_path)
-        filename = filtered_path.split('/')[-1]
-        jmh_path = '{}/{}'.format(jmh_dirpath, filename)
-        changepoints_path = '{}/{}'.format(changepoints_dirpath, filename)
-
-        jmh_path, filtered_path, changepoints_path = [path for path in [jmh_path, filtered_path, changepoints_path]]
-        if not os.path.exists(changepoints_path):
+        if not os.path.exists(f'{changepoints_path}/{filename}'):
             print('Executing ', filename, '..')
-            changepoint(jmh_path, filtered_path, changepoints_path, S, curve, direction)
+            changepoint(jmh_path, filtered_path, f'{changepoints_path}/{filename}', S, curve, direction)
         else:
             print(filename, 'already exists')
