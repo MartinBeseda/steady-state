@@ -5,7 +5,7 @@ import time
 
 def run_cpsssd_with_params(S1, curve, direction, es, significance, changepoints_dir, classification_dir):
     t1 = time.time()
-    changepoint_analysis(S=S1, curve=curve, direction=direction, dirpath=changepoints_dir)
+    changepoint_analysis(S=S1, curve=curve, direction=direction, changepoints_path=changepoints_dir)
     t2 = time.time()
     classify_runs(es=es, significance=significance, changepoints_dir=changepoints_dir,
                   classification_dir=classification_dir)

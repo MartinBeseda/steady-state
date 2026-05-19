@@ -5,8 +5,10 @@ import json
 
 jagt = json.load(open('analysis-v2/man_steady_comparison/full_classification.json'))
 
-def changepoint_analysis(S, curve, direction, dirpath):
-    changepoints_path = prepare_dir(dirpath)
+def changepoint_analysis(S, curve, direction, changepoints_path):
+    # changepoints_path = prepare_dir(dirpath)
+    if not os.path.exists(changepoints_path):
+        os.makedirs(changepoints_path)
 
     # Iterate over JAGT
     for series_name_fork, e in jagt.items():
