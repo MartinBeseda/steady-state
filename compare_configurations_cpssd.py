@@ -16,12 +16,14 @@ from fit_cpssd import run_cpsssd_with_params
 import sklearn.cluster
 
 # Selected parameters to test
-s1_vals = (0.8, 0.9, 1.0)
-curve_vals = ("convex", "concave")
-direction_vals = ("decreasing", "increasing")
-es_vals = (0.04, 0.05, 0.06)
-significance_vals = (0.04, 0.05, 0.06)
-all_param_vals = (s1_vals, curve_vals, direction_vals, es_vals, significance_vals)
+s1_vals = (0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+curve_vals = ["convex"]
+direction_vals = ["decreasing"]
+es_vals = (0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09)
+significance_vals = (0.03, 0.04, 0.05, 0.06, 0.07)
+interpolation_methods = [('interp1d', 1), ('polynomial', 2), ('polynomial', 3), ('polynomial', 4), ('polynomial', 5),
+                         ('polynomial', 6), ('polynomial', 7)]
+all_param_vals = (s1_vals, curve_vals, direction_vals, es_vals, significance_vals, interpolation_methods)
 
 # List of all combinations of parameters
 config_lst = list(product(*all_param_vals))
@@ -44,7 +46,8 @@ def worker(params_idx: int) -> None:
     param_manhattan_err = 0
 
     # Obtain CP-SSD SSD IDX detection
-    run_cpsssd_with_params(params[0], params[1], params[2], params[3], params[4],
+    run_cpsssd_with_params(S1=params[0], curve=params[1], direction=params[2], es=params[3], significance=params[4],
+                           interp_method=params[5][0], poly_degree=params[5][1],
                            changepoints_dir=f'analysis-v2/cpssd-new-results/changepoints_{params_idx}',
                            classification_dir=f'analysis-v2/cpssd-new-results/classification_{params_idx}')
 

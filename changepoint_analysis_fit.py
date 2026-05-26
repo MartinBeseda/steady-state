@@ -5,7 +5,7 @@ import json
 
 jagt = json.load(open('analysis-v2/man_steady_comparison/full_classification.json'))
 
-def changepoint_analysis(S, curve, direction, changepoints_path):
+def changepoint_analysis(S, curve, direction, interp_method, poly_degree, changepoints_path):
     # changepoints_path = prepare_dir(dirpath)
     if not os.path.exists(changepoints_path):
         os.makedirs(changepoints_path)
@@ -18,6 +18,7 @@ def changepoint_analysis(S, curve, direction, changepoints_path):
 
         if not os.path.exists(f'{changepoints_path}/{filename}'):
             print('Executing ', filename, '..')
-            changepoint(jmh_path, filtered_path, f'{changepoints_path}/{filename}', S, curve, direction)
+            changepoint(jmh_path, filtered_path, f'{changepoints_path}/{filename}', S, curve, direction,
+                        interp_method, poly_degree)
         else:
             print(filename, 'already exists')

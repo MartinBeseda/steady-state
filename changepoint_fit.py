@@ -33,7 +33,7 @@ def crops(measurements):
     assert (len(penalties) == len(ncpts))
     return penalties, ncpts
 
-def find_penalty(measurements, S, curve, direction):
+def find_penalty(measurements, S, curve, direction, interp_method, poly_degree):
     penalties, ncpts = crops(measurements)
     default_pen = 15 * log(len(measurements))
 
@@ -41,7 +41,8 @@ def find_penalty(measurements, S, curve, direction):
         return penalties[0]
 
     try:
-        kneedle = KneeLocator(penalties[::-1], ncpts[::-1], S=S, curve=curve, direction=direction)
+        kneedle = KneeLocator(penalties[::-1], ncpts[::-1], S=S, curve=curve, direction=direction,
+                              interp_method=interp_method, polynomial_degree=poly_degree)
         penalty = kneedle.elbow if kneedle.elbow else default_pen
     except IndexError:
          penalty = default_pen
@@ -49,8 +50,8 @@ def find_penalty(measurements, S, curve, direction):
     return float(penalty)
 
 
-def pelt(ts, S, curve, direction):
-    penalty = find_penalty(ts, S, curve, direction)
+def pelt(ts, S, curve, direction, interp_method, poly_degree):
+    penalty = find_penalty(ts, S, curve, direction, interp_method, poly_degree)
     cpt = rpy2.interactive.packages.importr('changepoint')
     measurements = rpy2.robjects.FloatVector(ts)
     changepoints = cpt.cpt_meanvar(measurements, method='PELT', penalty='Manual',
@@ -59,7 +60,7 @@ def pelt(ts, S, curve, direction):
     return [int(cpoint - 1) for cpoint in changepoints.slots['cpts']]
 
 
-def changepoint(ts_path, filtered_path, changepoints_path, S, curve, direction):
+def changepoint(ts_path, filtered_path, changepoints_path, S, curve, direction, interp_method, poly_degree):
     with open(ts_path) as f_ts,  open(filtered_path) as f_filtered, open(changepoints_path, 'w') as f_cpts:
         ts_list = json.load(f_ts)
         filtered = json.load(f_filtered)
@@ -68,7 +69,7 @@ def changepoint(ts_path, filtered_path, changepoints_path, S, curve, direction):
         for ts, indexes in zip(ts_list, filtered):
             ts = np.array(ts)[indexes].tolist()
             # detect changepoints indexes
-            cpts_ = pelt(ts, S, curve, direction)
+            cpts_ = pelt(ts, S, curve, direction, interp_method, poly_degree)
             # lead back indexes to series without outliers
             cpts_ = np.array(indexes)[cpts_].tolist()
 
