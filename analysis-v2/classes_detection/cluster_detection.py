@@ -335,7 +335,7 @@ def main():
     plt.legend()
     plt.show()
 
-    # ---- D) Pie charts: per cluster ----
+    # ---- D) Bar charts: per cluster ----
     def autopct_with_counts(values):
         def inner(pct):
             total = sum(values)
