@@ -1,0 +1,13 @@
+comparison,result,count
+CP-SSD best vs CP-SSD original,CP-SSD best better,118
+CP-SSD best vs CP-SSD original,CP-SSD original better,89
+CP-SSD best vs CP-SSD original,tie,196
+CP-SSD best vs CP-SSD original,both false unsteady,4
+CP-SSD best vs KB-KSSD,CP-SSD best better,152
+CP-SSD best vs KB-KSSD,KB-KSSD better,228
+CP-SSD best vs KB-KSSD,tie,27
+CP-SSD best vs KB-KSSD,both false unsteady,0
+CP-SSD original vs KB-KSSD,CP-SSD original better,121
+CP-SSD original vs KB-KSSD,KB-KSSD better,263
+CP-SSD original vs KB-KSSD,tie,21
+CP-SSD original vs KB-KSSD,both false unsteady,2

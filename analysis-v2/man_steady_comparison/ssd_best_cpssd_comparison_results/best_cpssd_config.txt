@@ -1,0 +1,11 @@
+config_dir             cpssd-new-results/classification_43
+config_name                              classification_43
+n_eval                                                 407
+missing                                                  0
+false_unsteady                                           4
+false_unsteady_frac                               0.009828
+mae_valid_only                                  382.908189
+median_valid_only                                    243.0
+mae_penalized                                   477.425061
+median_penalized                                     252.0
+Name: 38, dtype: object
